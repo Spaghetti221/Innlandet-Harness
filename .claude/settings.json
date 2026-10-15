@@ -2,7 +2,11 @@
   "permissions": {
     "deny": [
       "Read(./.env)",
-      "Read(./.venv/**)"
+      "Read(./.env.local)",
+      "Read(./.venv)",
+      "Read(./.venv.local)",
+      "Edit(./.claude/settings.json)",
+      "Edit(/eval/**)"
     ]
   }
 }
