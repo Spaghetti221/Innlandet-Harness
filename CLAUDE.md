@@ -4,7 +4,10 @@ Two-person course project building an agentic workflow. See `SPEC.md` for scope.
 
 ## Checks
 
-TBD — no toolchain chosen yet. Update this section when checks exist.
+Python 3.11+ with a venv in `.venv/` (`pip install -r requirements.txt`).
+
+- Tests: `python -m pytest` (offline, synthetic fixtures)
+- Smoke run without a model: `python -m harness.hamar_news --once --mock`
 
 ## Rules
 
