@@ -1,5 +1,6 @@
 """Files on disk: saved HTML, stripped text, one Markdown summary per article, state and index."""
 
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -34,7 +35,18 @@ class Store:
         tmp.replace(self.state_path)
 
     def is_done(self, slug: str) -> bool:
-        return slug in self.state["articles"] or slug in self.state.get("skipped", [])
+        return (slug in self.state["articles"] or slug in self.state.get("skipped", [])
+                or self.digest(slug) in self.state.get("rejected", []))
+
+    @staticmethod
+    def digest(slug: str) -> str:
+        """Short hash of a slug, so rejected articles can be remembered without storing their URL."""
+        return hashlib.sha256(slug.encode("utf-8")).hexdigest()[:16]
+
+    def mark_rejected(self, slug: str) -> None:
+        """Remember an article we refuse to process (its title names people). Only a hash is kept."""
+        self.state.setdefault("rejected", []).append(self.digest(slug))
+        self._save_state()
 
     def mark_skipped(self, slug: str) -> None:
         """Remember pages that turned out not to be articles, so they are not refetched."""
@@ -52,7 +64,7 @@ class Store:
         return path
 
     def write_summary(self, article: Article, summary: str, language: str, model: str,
-                      truncated: bool) -> Path:
+                      truncated: bool, attempts: int = 1, problems: list[str] | None = None) -> Path:
         date = article.published[:10] or datetime.now().strftime("%Y-%m-%d")
         path = self.summaries_dir / f"{date}_{article.slug}.md"
         if summary.strip() == NO_CONTENT:
@@ -73,13 +85,17 @@ class Store:
             f"- **Model:** {model}",
             f"- **Summarised:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         ]
+        lines.append(f"- **Attempts:** {attempts}")
+        if problems:
+            lines.append(f"- **Check:** still failing after {attempts} attempt(s); read before use")
         if truncated:
             lines.append("- **Note:** the article was too long and was truncated before summarising.")
         lines += ["", "## Summary", "", summary.strip(), ""]
         path.write_text("\n".join(lines), encoding="utf-8")
         return path
 
-    def mark_done(self, article: Article, summary_path: Path, language: str, model: str) -> None:
+    def mark_done(self, article: Article, summary_path: Path, language: str, model: str,
+                  attempts: int = 1, problems: list[str] | None = None) -> None:
         self.state["articles"][article.slug] = {
             "url": article.url,
             "title": article.title,
@@ -87,6 +103,8 @@ class Store:
             "summary_file": summary_path.name,
             "language": language,
             "model": model,
+            "attempts": attempts,
+            "passed_check": not problems,
             "summarised_at": datetime.now().isoformat(timespec="seconds"),
         }
         self._save_state()

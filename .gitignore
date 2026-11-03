@@ -4,3 +4,15 @@ out/
 .claude/settings.local.json
 __pycache__/
 .pytest_cache/
+
+# macOS and IDE files
+.DS_Store
+.idea/
+
+# Report build leftovers
+report/**/_to_delete/
+report/**/*.aux
+report/**/*.log
+report/**/*.fls
+report/**/*.fdb_latexmk
+report/**/*.out

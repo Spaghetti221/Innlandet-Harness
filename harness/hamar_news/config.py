@@ -15,7 +15,8 @@ DEFAULTS = {
     "num_ctx": 8192,
     "max_input_tokens": 6000,
     "max_listing_pages": 3,
-    "request_delay_seconds": 2,
+    "request_delay_seconds": 5,
+    "max_attempts": 3,
     "profiles": {
         "prod": {"interval_seconds": 6 * 60 * 60},
         "test": {"interval_seconds": 30},

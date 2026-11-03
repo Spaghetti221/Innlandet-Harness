@@ -1,6 +1,16 @@
 # Innlandet Harness
 
-Two-person course project building an agentic workflow. Details TBD — see [SPEC.md](SPEC.md).
+Two-person course project (KIUA-2003, INN) building an agentic workflow for the Innlandet region.
+The problem, users and definition of success are in [SPEC.md](SPEC.md).
+
+**Quick start (walking skeleton, no model needed):**
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\activate
+pip install -r requirements.txt
+python -m harness.hamar_news --once --mock           # fetch, extract, summarise (mock)
+python -m harness.hamar_news.check --mock            # check the output: prints PASS/FAIL, exit 0/1
+```
 
 ## Layout
 
@@ -8,10 +18,14 @@ Two-person course project building an agentic workflow. Details TBD — see [SPE
 |---|---|
 | `SPEC.md` | Problem, users, definition of success |
 | `tasks/` | Task definitions for the workflow |
-| `harness/` | The agent harness (no code yet) |
+| `harness/hamar_news/` | The harness: fetch → extract → summarise → store, plus the output check |
+| `harness/hamar_news/prompts/` | Context files: the system prompt, and an English glossary of planning terms |
+| `harness/hamar_news/data/first_names.txt` | First names used to find and remove personal names |
+| `config.json` | Run settings: language, model, intervals, request delay |
 | `eval/` | Evaluation cases and scoring — do not edit without agreement |
 | `fixtures/` | Test inputs (no personal data) |
 | `docs/meetings/` | Meeting notes |
+| `report/c2/` | Compulsory 2 report (LaTeX, NeurIPS preprint style): `main.tex`, `main.pdf` |
 | `docs/prompt-log.md` | Log of prompts used during development |
 | `out/` | Run outputs (git-ignored) |
 
@@ -86,7 +100,8 @@ Scheduler or cron.
 | `num_ctx` | `8192` | Context window requested from Ollama (see below) |
 | `max_input_tokens` | `6000` | Article text is cut (at a paragraph if possible) above this estimate |
 | `max_listing_pages` | `3` | How many listing pages to scan per run |
-| `request_delay_seconds` | `2` | Pause between requests to hamar.kommune.no |
+| `request_delay_seconds` | `5` | Pause between requests to hamar.kommune.no (the longer of this and the site's robots.txt `Crawl-delay` is used) |
+| `max_attempts` | `3` | Model calls per article, including retries after a failed check |
 | `profiles` | `prod` 21600 s, `test` 30 s | Polling intervals |
 
 ### Output (`out/`, git-ignored)
@@ -116,10 +131,43 @@ limit is cut silently, and the system prompt or the start of the article can be 
 
 The longest article at the time of writing (2026-10-29) was about 510 words, roughly
 4 KB of text. That is about 1.2k tokens; the typical article is 150–300 words, about
-400–800 tokens. With the system prompt (~400 tokens) and the answer (≤500 tokens), a
-summary needs about 1.5–2.5k tokens. **`num_ctx = 4096` is the minimum that is safe; the
+400–800 tokens. With the system prompt and the answer (≤500 tokens), a
+summary needs about 2–2.5k tokens (the English system prompt with its glossary is ~700 tokens). **`num_ctx = 4096` is the minimum that is safe; the
 default of 8192 leaves room for long hearing notices.** Text over `max_input_tokens` is
 truncated, and the summary file says so.
+
+### Personal data
+
+Before anything is stored or sent to the model, e-mail addresses, phone numbers and
+personal names are replaced with placeholders. Names are found by three heuristics: a common
+first name from `data/first_names.txt` followed by one to three capitalised words;
+capitalised words after a phrase such as "rettes til" or "kontaktperson er"; and
+capitalised words right before a contact detail ("…, epost:"). An
+article whose **title** names people (for example a prize given to individuals) is
+rejected: nothing is stored, and it is remembered only as a hash of its slug.
+
+### Checking the output
+
+```bash
+python -m harness.hamar_news.check --mock    # mock run
+python -m harness.hamar_news.check           # real run
+```
+
+The check reads `state.json`, every summary file and the saved HTML, and fails (exit 1)
+if any article breaks a rule: one summary per article, complete header, the link is the
+article's own `hamar.kommune.no/lokaldemokrati` URL, Published/Expires match the source
+page, 3–6 flat bullet points with none repeated (real runs), no e-mail addresses, phone
+numbers or personal names, **no date in the summary that is missing from the source
+text**, and **the deadline kept** (a date after "frist", "innen" or "senest" in the source
+must be in the summary). Failures report how many names were found, never the names.
+
+### Retry with feedback
+
+The same checks run inside the pipeline right after the model answers. If a summary breaks
+a rule, the model gets its previous answer and the list of problems and tries again, up to
+`max_attempts` (default 3) in total. Each summary file records the number of attempts, and
+a summary that still fails is marked "read before use". Retries cost extra model calls: at
+most `max_attempts` per article. Results also go to `check.json`.
 
 ### Tests
 

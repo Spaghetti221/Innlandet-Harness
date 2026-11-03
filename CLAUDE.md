@@ -8,6 +8,7 @@ Python 3.11+ with a venv in `.venv/` (`pip install -r requirements.txt`).
 
 - Tests: `python -m pytest` (offline, synthetic fixtures)
 - Smoke run without a model: `python -m harness.hamar_news --once --mock`
+- Output check (exit 0/1): `python -m harness.hamar_news.check --mock`
 
 ## Rules
 

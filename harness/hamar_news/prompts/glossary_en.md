@@ -1,0 +1,17 @@
+Use these English terms for Norwegian planning words:
+- pumpestasjon: pumping station
+- VA-anlegg (vann og avløp): water and sewerage facility
+- høring: public consultation
+- offentlig ettersyn: public inspection
+- reguleringsplan: zoning plan
+- detaljregulering: detailed zoning plan
+- kommunedelplan: municipal sub-plan
+- oppstart av planarbeid: start of planning work
+- handlings- og økonomiplan (HØP): action and finance plan
+- kommunestyret: the municipal council
+- formannskapet: the executive committee
+- fylkeskommune: county authority
+- tilskudd: grant
+- innspill, merknad: comments
+- frist: deadline
+- saksnummer: case number

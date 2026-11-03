@@ -1,6 +1,7 @@
 """Strip an article page down to its raw text (title, lead, body) plus dates.
 
-The page author (og:article:author) is deliberately never read: no personal data.
+No personal data: the page author (og:article:author) is never read, and e-mail addresses,
+phone numbers and personal names are replaced before the text is stored or sent to the model.
 """
 
 import re
@@ -9,6 +10,7 @@ from dataclasses import dataclass
 from bs4 import BeautifulSoup, Tag
 
 from .fetch import slug_of
+from .names import has_person_name, scrub_person_names
 
 BLOCK_TAGS = ["p", "div", "li", "tr", "table", "ul", "ol", "section",
               "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "figcaption"]
@@ -28,6 +30,7 @@ class Article:
     published: str  # ISO timestamp or ""
     modified: str
     expires: str
+    names_in_title: bool = False  # the article is about named people; the pipeline rejects it
 
     @property
     def text(self) -> str:
@@ -64,6 +67,10 @@ def scrub_contact_details(text: str) -> str:
     return PHONE.sub("[telefon fjernet]", text)
 
 
+def scrub_personal_data(text: str) -> str:
+    return scrub_person_names(scrub_contact_details(text))
+
+
 def extract_article(html: str, url: str) -> Article | None:
     """Return the article, or None if the page is not a single article."""
     soup = BeautifulSoup(html, "html.parser")
@@ -80,10 +87,11 @@ def extract_article(html: str, url: str) -> Article | None:
     return Article(
         url=url,
         slug=slug_of(url),
-        title=title,
-        lead=scrub_contact_details(lead),
-        body=scrub_contact_details(body),
+        title=scrub_personal_data(title),
+        lead=scrub_personal_data(lead),
+        body=scrub_personal_data(body),
         published=_meta(soup, "og:article:published_time"),
         modified=_meta(soup, "og:article:modified_time"),
         expires=_meta(soup, "og:article:expiration_time"),
+        names_in_title=has_person_name(title),
     )

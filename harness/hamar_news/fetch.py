@@ -89,7 +89,9 @@ class Fetcher:
     def get(self, url: str) -> str:
         if not self._allowed(url):
             raise PermissionError(f"robots.txt disallows {url}")
-        wait = self.delay - (time.monotonic() - self._last_request)
+        # Honour the site's Crawl-delay (5 s on hamar.kommune.no) if it is longer than ours.
+        delay = max(self.delay, self._robots.crawl_delay(USER_AGENT) or 0)
+        wait = delay - (time.monotonic() - self._last_request)
         if wait > 0:
             time.sleep(wait)
         try:
