@@ -42,6 +42,9 @@ things"), but the C2 skeleton is built around this one path.
   the model for up to three attempts; a deadline check was added. 40 offline tests pass.
 - Open question: keep the local model (free, private) or add the Claude API as a second model
   and compare them on the same saved pages.
+- Digital prototype, the same evening: **Hamar Reader**, an Expo phone app showing the summaries
+  in English and Norwegian, with notice types and a reminder three days before a deadline.
+  The export step leaves out any summary in which a name is found.
 
 ## Action points
 | What | Who | When |
@@ -50,4 +53,4 @@ things"), but the C2 skeleton is built around this one path.
 | Decide on Ollama only, or Ollama plus Claude API | Both | 05.11 |
 | Read and rewrite the C2 report in our own words; fill in the human decisions in the prompt log | Both | 05.11 |
 | Commit, push and submit Compulsory 2 | Both | 06.11 |
-| Plan the demo storyline and the digital prototype for weeks 46–47 | Both | 08.11 |
+| Plan the demo storyline around the Hamar Reader app for weeks 46–47 | Both | 08.11 |

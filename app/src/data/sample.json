@@ -1,0 +1,54 @@
+[
+  {
+    "slug": "si-din-mening-om-testplan-for-eksempelvegen",
+    "title": "Si din mening om testplan for Eksempelvegen",
+    "kind": "hearing",
+    "published": "2026-10-20",
+    "expires": "2027-06-01",
+    "deadline": "2027-01-15",
+    "url": "https://www.hamar.kommune.no/lokaldemokrati/si-din-mening-om-testplan-for-eksempelvegen",
+    "summaries": {
+      "en": {
+        "model": "sample",
+        "bullets": [
+          {"text": "Sample data: run the harness and the export to see real summaries.", "children": []},
+          {"text": "The municipality proposes a new zoning plan for an example road.", "children": []},
+          {"text": "Residents can send comments in writing.", "children": ["Online form", "Letter to the municipality"]},
+          {"text": "Deadline for comments: 15 January 2027.", "children": []}
+        ],
+        "passedCheck": true,
+        "truncated": false
+      },
+      "no": {
+        "model": "sample",
+        "bullets": [
+          {"text": "Eksempeldata: kjør harnesset og eksporten for å se ekte sammendrag.", "children": []},
+          {"text": "Kommunen foreslår en ny reguleringsplan for en eksempelveg.", "children": []},
+          {"text": "Innspill sendes skriftlig innen 15. januar 2027.", "children": []}
+        ],
+        "passedCheck": true,
+        "truncated": false
+      }
+    }
+  },
+  {
+    "slug": "eksempelvedtak-i-kommunestyret",
+    "title": "Eksempelvedtak i kommunestyret",
+    "kind": "decision",
+    "published": "2026-09-01",
+    "expires": null,
+    "deadline": null,
+    "url": "https://www.hamar.kommune.no/lokaldemokrati/eksempelvedtak-i-kommunestyret",
+    "summaries": {
+      "en": {
+        "model": "sample",
+        "bullets": [
+          {"text": "Sample data: the council adopted an example decision.", "children": []},
+          {"text": "No action is needed from residents.", "children": []}
+        ],
+        "passedCheck": false,
+        "truncated": false
+      }
+    }
+  }
+]

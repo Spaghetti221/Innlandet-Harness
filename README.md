@@ -25,6 +25,7 @@ python -m harness.hamar_news.check --mock            # check the output: prints 
 | `eval/` | Evaluation cases and scoring — do not edit without agreement |
 | `fixtures/` | Test inputs (no personal data) |
 | `docs/meetings/` | Meeting notes |
+| `app/` | Hamar Reader: Expo phone app that shows the summaries (see [app/README.md](app/README.md)) |
 | `report/c2/` | Compulsory 2 report (LaTeX, NeurIPS preprint style): `main.tex`, `main.pdf` |
 | `docs/prompt-log.md` | Log of prompts used during development |
 | `out/` | Run outputs (git-ignored) |
@@ -168,6 +169,13 @@ a rule, the model gets its previous answer and the list of problems and tries ag
 `max_attempts` (default 3) in total. Each summary file records the number of attempts, and
 a summary that still fails is marked "read before use". Retries cost extra model calls: at
 most `max_attempts` per article. Results also go to `check.json`.
+
+### Phone app (Hamar Reader)
+
+`python -m harness.hamar_news.export` turns one or more runs into `app/src/data/summaries.json`
+(summaries, dates and links only; summaries in which a name is found are left out). The app in
+`app/` shows them in English and Norwegian with reminders before deadlines. Setup and running:
+[app/README.md](app/README.md).
 
 ### Tests
 

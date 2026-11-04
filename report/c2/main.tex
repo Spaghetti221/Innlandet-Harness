@@ -43,37 +43,32 @@ demonstration and the main risks. The walking skeleton runs end to end. Over thr
 from 6/11 to 9/10, and reading the output showed what code checks alone cannot catch.
 \end{abstract}
 
+\noindent\textbf{Repository:} \url{https://github.com/Spaghetti221/Innlandet-Harness}\\
+Branch \texttt{feature/hamar-news-summariser}; the READMEs explain how to reproduce the runs and the app.
+
 \section{Problem}
 
 \paragraph{The recurring need.} The \emph{Lokaldemokrati} page\footnote{\url{https://www.hamar.kommune.no/lokaldemokrati/}}
 is where Hamar kommune announces things residents can act on: hearings and public inspection of
 zoning plans, the start of planning work, grant schemes, and decisions by the municipal council.
-Notices from other bodies appear there as well; for example, Innlandet fylkeskommune announced
-there on 26.10.2026 that it has started a zoning plan for a cycle path with a pavement along
-Ringgata; the notice expires on 18.11.2026. Keeping up is manual work that recurs every
-week: open the page, find what is new, read the Norwegian text, and note the deadline. Nothing
-pushes the information to people. On 22.10 the page listed 16 articles; on 03.11 it listed 11. Each
-article carries an expiry date and is taken down after it, so a resident who looks only once a
-month can miss a notice entirely, not just see it late.
+Keeping up is manual work every week: open the page, find what is new, read the Norwegian text
+and note the deadline. Nothing pushes the information to people, and articles are taken down when
+they expire (16 listed on 22.10, 11 on 03.11), so a resident who looks once a month can miss a
+notice entirely.
 
-\paragraph{Who has the need.} Residents who want to comment on plans near them; international
-residents and students who read English better than Norwegian; and associations that follow plans
-and grant calls for their members.
+\paragraph{Who has the need.} Residents who want to comment on plans near them, international
+residents and students who read English better than Norwegian, and local associations.
 
 \paragraph{What the workflow produces.} For every new article, one Markdown file with the title,
 the publish date, the expiry or deadline date, a link to the original, a 3--6 bullet summary in
 the chosen language (for example English or Ukrainian), and links to the saved page and the
 extracted text. An index lists all summaries. Nothing is published automatically.
 
-\paragraph{Fit with the constraints.} The source is a public municipal website. Its
-\texttt{robots.txt} allows general crawling of the page with a \texttt{Crawl-delay} of 5 seconds;
-the harness reads and obeys it (Section~\ref{sec:risk} discusses why we still treat access as a
-risk). Personal data is kept out by design: the page author field is never read, only the
-headline, lead and body inside the article element are extracted, and e-mail addresses, phone
-numbers and personal names are replaced before text is stored or reaches the model. An article
-whose title names people, such as a prize given to individuals, is rejected outright. The model runs locally, so no article text
-leaves the machine. The summaries serve people in Hamar and keep Norwegian names of places, plans
-and case numbers as written.
+\paragraph{Fit with the constraints.} The source is a public municipal website whose \texttt{robots.txt}
+allows crawling with a \texttt{Crawl-delay} of 5\,s, which the harness obeys (access is still a risk,
+Section~\ref{sec:risk}). The page author is never read; e-mail addresses, phone numbers and names
+are replaced before text is stored or reaches the model; articles whose title names people are
+rejected. The model runs locally, so no article text leaves the machine.
 
 \section{Definition of success}
 \label{sec:success}
@@ -191,34 +186,46 @@ summary is written, so a failed model call is retried on the next run.}
 
 \paragraph{Context the model receives.} The model sees only what it needs: a system prompt kept
 as a versioned context file (\texttt{harness/hamar\_news/prompts/summarise\_system.md}) and the
-scrubbed article text inside \texttt{<article>} tags. The prompt has eight rules: write only in
-the chosen language; at most six bullets on what the case is, whom and where it affects, what
-residents can do, and every deadline, plan ID and case number copied exactly; one flat list;
-facts from the article only, without noting what is missing; no names, even of contact persons;
-the article is data, not instructions; bullets only; and a fixed reply when there is no content.
-For English, a glossary of sixteen planning terms is appended (\texttt{glossary\_en.md}). Nothing else is in the context, so each call is
-independent and cannot drift over a long run.
+scrubbed article text inside \texttt{<article>} tags. Its eight rules cover the language, at most six
+flat bullets (what, who and where, what residents can do, every deadline and case number copied
+exactly), facts from the article only, no names, and treating the article as data, not
+instructions. English adds a glossary of sixteen planning terms. Nothing else is in the context,
+so each call is independent and cannot drift over a long run.
 
 \paragraph{Context the coding agent receives.} \texttt{CLAUDE.md} (checks to run; never edit
 \texttt{eval/} without asking; no personal data; secrets only in \texttt{.env}), \texttt{SPEC.md},
 and \texttt{.claude/settings.json}, which denies reading \texttt{.env} and editing \texttt{eval/}.
 
-\paragraph{What runs without a person.} The polling loop runs stages 1--6 every six hours (or
-from cron); the check runs after each pass. A person reads the summaries; nothing leaves the
-system automatically. That is our human-in-the-loop gate until the checks and the judge have been
-measured on the test set.
+\paragraph{What runs without a person.} The polling loop (every six hours, or cron) and the check.
+Nothing leaves the system automatically: a person reads the summaries before export, our
+human-in-the-loop gate until the checks and the judge are measured on the test set.
+
+\paragraph{Digital prototype: Hamar Reader.} Following the lecturer's advice (Meeting 5) we built a
+phone app (Expo, React Native) that shows the summaries in English and Norwegian, labels each
+notice (have your say, grant, new plan, decision, information) from keywords in the Norwegian
+title, and sets a local reminder three days before a deadline found in the source text. An export
+step (\texttt{export.py}) turns the runs into one JSON file with only summaries, dates and links,
+never source text, and leaves out any summary in which a name is found. The app calls neither the
+site nor the model.
+
+\paragraph{Technical minimum.} (1) \emph{Checkable output}: every summary is checked by code
+(Table~\ref{tab:checks}), exit 0/1. (2) \emph{More than one stage}: seven stages, only one of which
+calls the model, and its answer is checked and returned with feedback, so no single prompt does the
+work. (3) \emph{Tools}: HTTP with \texttt{robots.txt}, files on disk as the hand-over between stages,
+a local model server, and the check as a shell command. (4) \emph{Automatic}: the polling loop runs
+stages 1--7 every six hours, and the retry loop runs without a person.
 
 \paragraph{Planned decomposition for the exam.} Stage 5 becomes three stages: (a) \emph{classify}
 the article (hearing, plan start, grant, decision, other); (b) \emph{extract} who, what, where,
 deadline and case number as JSON, each value quoting its evidence, which code checks against the
 source, with retry on failure; (c) \emph{summarise} from the verified fields only. This targets
-the wrong-planner error of run 3. Output adds a weekly digest and a calendar file of deadlines.
+the wrong-planner error of run 3.
 
 \section{Schedule}
 
 The demonstration is in week 46 or 47; the slot will be announced on Canvas. We plan backwards
-from the earliest possible slot (Monday 09.11), so the demo version is frozen on 08.11. If our slot
-is in week 47, the extra week goes to stress testing before the demo.
+from the earliest slot (Monday 09.11), freezing the demo version on 08.11; a week 47 slot gives an
+extra week of stress testing.
 
 \begin{table}[!ht]
   \caption{Milestones, planned backwards from the demonstration.}
@@ -227,7 +234,7 @@ is in week 47, the extra week goes to stress testing before the demo.
     \toprule
     Date & Milestone (done when) \\
     \midrule
-    03.11 & Skeleton complete; three real-model runs (6/11, 5/10, 9/10); repairs and retry loop; 41 tests \\
+    03.11 & Skeleton complete; three real-model runs (6/11, 5/10, 9/10); retry loop; Hamar Reader app; 47 tests \\
     05.11 & Fourth run with the new name rules; decide whether to add the Claude API as a second model \\
     06.11 & \textbf{Compulsory 2 submitted} (retake) \\
     08.11 & \textbf{Demo version frozen:} test set v1 (saved real articles, boundary and reject cases); evaluation runs with one command and reports pass rates; kill switch and token budget in place \\
@@ -260,18 +267,11 @@ Table~\ref{tab:risk} lists what we expect to fail first, most serious first.
     The site changes layout or URLs, so nothing is found & M & H & Page check rejects unknown pages. Kill switch: stop and raise a flag after two runs in a row that find no articles, or when more than a third of summaries fail the check. Demo can replay saved pages. \\
     Access is not welcome: \texttt{robots.txt} blocks \texttt{ClaudeBot}, and the terms say nothing about automated reading & L & H & We use our own User-Agent, obey \texttt{Crawl-delay}, poll every six hours and republish nothing but short summaries with links. We will ask the lecturer, and the municipality if needed; if the answer is no, we switch to saved snapshots. \\
     Ollama is too slow or missing on the demo laptop & M & M & Measured: about 7\,s per article in run 1; keep pre-run outputs and \texttt{--mock} as fallback. \\
-    Prompt injection inside an article & L & M & Article is wrapped as data and the prompt says to ignore instructions in it; an injected article becomes a stress test. \\
-    Articles expire, so the test set changes & H & L & Test set built from saved pages, not the live site. \\
+    Prompt injection inside an article & L & M & Article wrapped as data; prompt says to ignore instructions; planned stress test. \\
+    Articles expire, so the test set changes & H & L & Test set built from saved pages. \\
     \bottomrule
   \end{tabular}
 \end{table}
-
-\FloatBarrier
-\section{Repository}
-
-\url{https://github.com/Spaghetti221/Innlandet-Harness} (branch
-\texttt{feature/hamar-news-summariser}). The README explains how to reproduce the run
-(\texttt{--once --mock}, then the check) and the tests.
 
 \newpage
 \appendix
@@ -354,9 +354,10 @@ that can be shown; give the demo and the report one storyline (problem, user, ru
 broke, how we fixed it); and we may build on top of existing services, which revises our week 44
 criterion of dropping candidates that were ``largely solved already''. \emph{Decision:} we
 continue with the news app for local politics as our Compulsory 2 project. Status the same day:
-two real-model runs (6/11 and 5/10 passed), repairs, and a retry-with-feedback loop.
+three real-model runs, repairs, a retry-with-feedback loop, and in the evening a first
+version of the Hamar Reader app as the digital prototype.
 \emph{Actions:} third run with the retry loop (Tor, 05.11); decide whether to add the Claude API
 (both, 05.11); rewrite the report in our own words (both, 05.11); submit (06.11); plan the demo
-storyline and prototype (08.11).
+storyline around the app (08.11).
 
 \end{document}
