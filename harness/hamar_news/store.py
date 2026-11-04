@@ -1,8 +1,15 @@
-"""Files on disk: saved HTML, stripped text, one Markdown summary per article, state and index."""
+"""Files on disk: cleaned source data, stripped text, one Markdown summary per article, every
+model attempt, state and index.
+
+The raw HTML is never stored: it contains names and contact boxes. Only the cleaned article
+(names, e-mail addresses and phone numbers replaced) and its dates are kept, which is all the
+check needs.
+"""
 
 import hashlib
 import json
 import os
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
@@ -13,14 +20,15 @@ from .summarise import NO_CONTENT
 class Store:
     def __init__(self, out_dir: Path, mock: bool):
         self.out_dir = Path(out_dir)
-        # HTML and text are shared; summaries and "already done" state are kept apart for
-        # mock runs so a mock run never stops a real run from summarising an article.
+        # Source data and text are shared; summaries, attempts and "already done" state are kept
+        # apart for mock runs so a mock run never stops a real run from summarising an article.
         self.root = self.out_dir / "mock" if mock else self.out_dir
-        self.html_dir = self.out_dir / "html"
+        self.source_dir = self.out_dir / "source"
         self.text_dir = self.out_dir / "text"
         self.summaries_dir = self.root / "summaries"
+        self.attempts_dir = self.root / "attempts"
         self.state_path = self.root / "state.json"
-        for d in (self.html_dir, self.text_dir, self.summaries_dir):
+        for d in (self.source_dir, self.text_dir, self.summaries_dir, self.attempts_dir):
             d.mkdir(parents=True, exist_ok=True)
         self.state = self._load_state()
 
@@ -53,9 +61,21 @@ class Store:
         self.state.setdefault("skipped", []).append(slug)
         self._save_state()
 
-    def save_html(self, slug: str, html: str) -> Path:
-        path = self.html_dir / f"{slug}.html"
-        path.write_text(html, encoding="utf-8")
+    def save_source(self, article: Article) -> Path:
+        """The cleaned article and its dates, as JSON. Replaces the raw HTML stored before 05.11."""
+        path = self.source_dir / f"{article.slug}.json"
+        path.write_text(json.dumps(asdict(article), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        return path
+
+    def save_attempt(self, slug: str, attempt: int, summary: str, problems: list[str]) -> Path:
+        """Every model answer is kept, with the problems the check found, so a retry that makes a
+        summary worse can be seen afterwards."""
+        folder = self.attempts_dir / slug
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"attempt-{attempt}.md"
+        found = "\n".join(f"- {p}" for p in problems) or "- none (passed)"
+        path.write_text(f"# Attempt {attempt}\n\n## Problems found\n\n{found}\n\n## Model answer\n\n"
+                        f"{summary.strip()}\n", encoding="utf-8")
         return path
 
     def save_text(self, article: Article) -> Path:
@@ -79,7 +99,7 @@ class Store:
             lines.append(f"- **Expires / deadline:** {article.expires[:10]}")
         lines += [
             f"- **Original article:** <{article.url}>",
-            f"- **Saved HTML:** [{article.slug}.html]({self._rel(self.html_dir / f'{article.slug}.html')})",
+            f"- **Saved source:** [{article.slug}.json]({self._rel(self.source_dir / f'{article.slug}.json')})",
             f"- **Extracted text:** [{article.slug}.txt]({self._rel(self.text_dir / f'{article.slug}.txt')})",
             f"- **Summary language:** {language}",
             f"- **Model:** {model}",

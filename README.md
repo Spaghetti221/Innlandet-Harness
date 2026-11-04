@@ -37,8 +37,8 @@ Copy `.env.example` to `.env` and fill in the values. `.env` is never committed.
 ## Hamar news summariser (`harness/hamar_news`)
 
 Hamar kommune has no API or RSS feed for its "Lokaldemokrati" announcements
-(<https://www.hamar.kommune.no/lokaldemokrati/>). This program polls that page, saves
-every new article's HTML, strips it down to the raw article text, and asks a local
+(<https://www.hamar.kommune.no/lokaldemokrati/>). This program polls that page, strips
+every new article down to its text, removes personal data, and asks a local
 **Llama 3.2 3B** model (via [Ollama](https://ollama.com)) to summarise it in a language of
 your choice. Each article gets **exactly one** Markdown summary file with a link back to
 the original, and an `INDEX.md` lists them all.
@@ -109,8 +109,9 @@ Scheduler or cron.
 
 ```
 out/
-  html/<slug>.html                        raw page as downloaded
-  text/<slug>.txt                         stripped article text (what the model sees)
+  source/<slug>.json                      cleaned article and its dates (the raw HTML is never stored)
+  text/<slug>.txt                         cleaned article text (what the model sees)
+  attempts/<slug>/attempt-N.md            every model answer with the problems the check found
   summaries/<published-date>_<slug>.md    one summary per article (real runs)
   summaries/INDEX.md                      table of all summaries with links
   state.json                              articles already summarised (never redone)
@@ -119,7 +120,7 @@ out/
 ```
 
 Each summary file shows the title, publish date, expiry/deadline date, a link to the
-original article, links to the saved HTML and text, the language, the model and the time
+original article, links to the saved source and text, the language, the model and the time
 it was summarised. An article is marked as done only after its summary file has been
 written. If Ollama is down or fails, the article is retried on the next run. Mock runs
 keep their own state, so they never stop a real run from summarising an article.
@@ -154,20 +155,26 @@ python -m harness.hamar_news.check --mock    # mock run
 python -m harness.hamar_news.check           # real run
 ```
 
-The check reads `state.json`, every summary file and the saved HTML, and fails (exit 1)
+The check reads `state.json`, every summary file and the saved source, and fails (exit 1)
 if any article breaks a rule: one summary per article, complete header, the link is the
 article's own `hamar.kommune.no/lokaldemokrati` URL, Published/Expires match the source
 page, 3–6 flat bullet points with none repeated (real runs), no e-mail addresses, phone
 numbers or personal names, **no date in the summary that is missing from the source
 text**, and **the deadline kept** (a date after "frist", "innen" or "senest" in the source
-must be in the summary). Failures report how many names were found, never the names.
+must be in the summary), **the requested language** (English or Norwegian, by counts of
+common words) and **the responsible body** (the summary must not say Hamar kommune acts when
+the source names another body, e.g. the county, a consultancy or Bufdir). Failures report
+how many names were found, never the names. Runs from before 05.11 stored raw HTML in
+`out/html/`; the check still reads it so old runs can be rescored, but those files contain
+names and should be deleted when no longer needed.
 
 ### Retry with feedback
 
 The same checks run inside the pipeline right after the model answers. If a summary breaks
 a rule, the model gets its previous answer and the list of problems and tries again, up to
 `max_attempts` (default 3) in total. Each summary file records the number of attempts, and
-a summary that still fails is marked "read before use". Retries cost extra model calls: at
+a summary that still fails is marked "read before use". Every attempt is kept in
+`attempts/<slug>/`, so a retry that makes a summary worse can be seen. Retries cost extra model calls: at
 most `max_attempts` per article. Results also go to `check.json`.
 
 ### Phone app (Hamar Reader)

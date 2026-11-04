@@ -132,8 +132,9 @@ def test_run_once_summarises_each_article_once(tmp_path):
     assert md.startswith("# Si din mening om testplan for Eksempelvegen")
     assert f"<{ARTICLE_URL}>" in md
     assert "**Summary language:** German" in md
-    assert "../../html/si-din-mening-om-testplan-for-eksempelvegen.html" in md
-    assert (tmp_path / "html" / "si-din-mening-om-testplan-for-eksempelvegen.html").exists()
+    assert "../../source/si-din-mening-om-testplan-for-eksempelvegen.json" in md
+    assert (tmp_path / "source" / "si-din-mening-om-testplan-for-eksempelvegen.json").exists()
+    assert not (tmp_path / "html").exists()  # raw HTML is never stored (it holds names)
     assert ARTICLE_URL in (tmp_path / "mock" / "summaries" / "INDEX.md").read_text(encoding="utf-8")
 
     # A new Store reloads state from disk, like the next scheduled run.

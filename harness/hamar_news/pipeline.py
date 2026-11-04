@@ -39,13 +39,13 @@ def run_once(config: dict, fetcher, summariser, store: Store) -> list[Path]:
             log.info("Rejected article %s: its title names people", store.digest(article.slug))
             store.mark_rejected(article.slug)
             continue
-        store.save_html(article.slug, html)
+        store.save_source(article)
         store.save_text(article)
 
         text, truncated = truncate(article.text, config["max_input_tokens"])
         try:
             summary, attempts, problems = summarise_checked(summariser, article, text, language,
-                                                            config.get("max_attempts", 3))
+                                                            config.get("max_attempts", 3), store)
         except requests.ConnectionError as exc:
             log.error("Model server unreachable (%s); stopping this run, will retry next time", exc)
             break
@@ -64,7 +64,7 @@ def run_once(config: dict, fetcher, summariser, store: Store) -> list[Path]:
 
 
 def summarise_checked(summariser, article, text: str, language: str,
-                      max_attempts: int) -> tuple[str, int, list[str]]:
+                      max_attempts: int, store: Store | None = None) -> tuple[str, int, list[str]]:
     """Summarise, check the result with code, and if it breaks a rule, give the problems back
     to the model and let it try again. Returns the last summary, the number of attempts and
     the problems that remain (empty if the summary passed)."""
@@ -76,7 +76,9 @@ def summarise_checked(summariser, article, text: str, language: str,
             summary = summariser.summarise(text, language)
         else:
             summary = summariser.summarise(text, language, previous=previous, problems=problems)
-        problems = validate_summary(summary, article, is_mock)
+        problems = validate_summary(summary, article, is_mock, language)
+        if store is not None:
+            store.save_attempt(article.slug, attempt, summary, problems)
         if not problems:
             return summary, attempt, []
         log.info("Attempt %d for %s failed the check: %s", attempt, article.slug, "; ".join(problems))

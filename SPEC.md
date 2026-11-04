@@ -37,8 +37,10 @@ Success has two levels. A run is successful only if both pass.
 6. No e-mail addresses, phone numbers or personal names in the title or summary.
 7. Every date in the summary also appears in the source text (nothing invented).
 8. A deadline in the source (a date after "frist", "innen" or "senest") is in the summary.
+9. The summary is in the requested language (English or Norwegian).
+10. The summary does not say Hamar kommune acts when the source names another body as acting.
 
-The pipeline runs checks 5–8 right after the model answers and gives failures back to the
+The pipeline runs checks 5–10 right after the model answers and gives failures back to the
 model for up to three attempts in total.
 
 ### Level 2: facts, checked against an answer key
@@ -56,11 +58,15 @@ at most one summary in ten with any other unsupported statement. Scored by hand 
 judge is planned on top, measured against the hand scores, with its prompt and failure modes
 documented.
 
+First result (hand check of run 3, 04.11): 4/10 summaries free of unsupported statements;
+all deadlines right; responsible body wrong in 3/10; one summary in the wrong language.
+The two repeated errors became Level 1 checks 9 and 10.
+
 ## Constraints
 
 - Public source only; robots.txt (including `Crawl-delay`) is honoured; no personal data
-  is stored on purpose: authors are never read; e-mails, phone numbers and personal names
-  are replaced before storage and before the model; articles whose title names people
+  is stored on purpose: authors are never read; the raw HTML is not stored; e-mails, phone
+  numbers and personal names are replaced before storage and before the model; articles whose title names people
   are rejected and remembered only as a hash. Known gap: names are found by a first-name
   heuristic, which can miss rare names.
 - A local model (Llama 3.2 3B via Ollama), so no article text leaves the machine.

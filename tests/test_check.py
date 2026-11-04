@@ -139,3 +139,46 @@ def test_retries_stop_and_failure_is_flagged(tmp_path):
     md = (tmp_path / "summaries" / SUMMARY).read_text(encoding="utf-8")
     assert "**Attempts:** 3" in md and "still failing after 3" in md
     assert any(f.startswith("summary_shape") for f in _failures(tmp_path))
+
+
+# --- Added 05.11 after the full fact check of run 3 ---------------------------------------
+
+from harness.hamar_news.check import language_problem, responsible_body_problem, source_actors
+
+
+def test_language_check_catches_norwegian_summary():
+    # Run 3: a summary came back in Norwegian although English was requested.
+    norwegian = ("- Kommunen ønsker innspill til planen.\n- Fristen er 30. november 2026.\n"
+                 "- Du kan sende innspill på e-post eller med post.")
+    assert language_problem(norwegian, "English").startswith("language:")
+    assert language_problem(GOOD, "English") is None
+    assert language_problem(GOOD, "Norwegian (bokmål)").startswith("language:")
+    assert language_problem(norwegian, "German") is None  # other languages are not checked
+
+
+def test_responsible_body_check():
+    # Run 3: "Hamar municipality is launching ..." where the county, a consultancy or Bufdir acted.
+    source = ("Innlandet fylkeskommune kunngjør oppstart av arbeid med reguleringsplan. "
+              "Eksempelkonsult starter nå arbeidet. Ordningen administreres av Bufdir.")
+    assert source_actors(source) == ["Innlandet fylkeskommune", "Eksempelkonsult", "Bufdir"]
+    wrong = "- The municipality of Hamar is launching a zoning plan for the street."
+    assert responsible_body_problem(wrong, source).startswith("responsible_body:")
+    assert responsible_body_problem("- The county is starting a zoning plan.", source) is None
+    # When Hamar kommune itself is the actor, saying so is fine.
+    assert responsible_body_problem(wrong, "Nå starter vi arbeidet. Kommunen ønsker innspill.") is None
+
+
+def test_every_attempt_is_stored(tmp_path):
+    model = SecondTimeRight()
+    _run(tmp_path, model, mock=False)
+    folder = tmp_path / "attempts" / "si-din-mening-om-testplan-for-eksempelvegen"
+    first, second = (folder / "attempt-1.md").read_text(), (folder / "attempt-2.md").read_text()
+    assert "summary_shape" in first and "indented sub-point" in first
+    assert "none (passed)" in second
+
+
+def test_source_data_is_cleaned_and_no_raw_html(tmp_path):
+    _run(tmp_path, FixedSummariser(GOOD), mock=False)
+    stored = (tmp_path / "source" / "si-din-mening-om-testplan-for-eksempelvegen.json").read_text()
+    assert "postmottak@example.org" not in stored and "FIXTURE-AUTHOR-NAME" not in stored
+    assert not list(tmp_path.rglob("*.html"))

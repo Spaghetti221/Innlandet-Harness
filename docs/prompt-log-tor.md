@@ -3,7 +3,8 @@
 This log records how I worked with coding agents on the project: the prompt, what the agent
 did, how the result was verified, and where agent output was **corrected**, **challenged** or
 **rejected**. For the 03.11 sessions each entry also gives a *better prompt in hindsight*: how I
-would write the same request now, knowing what went wrong. The original prompts were written in
+would write the same request now, knowing what went wrong. On 04.11 I sent those better prompts to
+the agent for real; the last entry records that session. The original prompts were written in
 Norwegian; they are translated here without changing their content.
 
 **Tools:** Claude (Opus 5.5) in the Claude app, with access to the repository folder on my Mac;
@@ -30,6 +31,9 @@ Claude Code in the terminal.
 | 03.11 | Challenged | "Where did meeting 4 go?" | Found on `main`; copied to the branch |
 | 03.11 | Corrected | A failed `git show` left an empty `Meeting 4.md` | Replaced with the real file and compared |
 | 04.11 | Corrected | The runs table compared pass rates measured with different check versions | Rescored with the final check: 5/11, 5/10, 9/10 |
+| 04.11 | Flagged by agent | Full fact check of run 3 (better prompt, sent for real): 12 unsupported statements, wrong body in 3/10, one summary in the wrong language | Strict Level 2: 4/10; report undercounts |
+| 04.11 | Flagged by agent | Raw HTML with names and contact boxes stored in `out/html/` | Fixed 05.11: cleaned JSON instead |
+| 05.11 | Corrected | Run 3's wrong body and wrong language were invisible to code | Two new Level 1 checks; rescored runs 5/10, 2/10, 6/10 |
 
 ---
 
@@ -338,6 +342,171 @@ The Level 2 targets and the owner of each milestone are the agent's proposals.
 
 > Evaluate the report as a strict examiner against the brief and each grading criterion. For every
 > number in the report, check that it was measured the same way as the numbers it is compared with.
+
+---
+
+## 2026-11-04 (evening) — The better prompts, sent for real
+
+**Tool:** Claude in the Claude app, with access to the repository folder on my Mac.
+
+After the earlier sessions I wrote better versions of my prompts (the "Better prompt (in
+hindsight)" sections above). On 04.11 at 22:25 I sent them to the agent in one message, so this
+entry records them as actual prompts. Some of the work they ask for had already been done; the
+agent re-checked it instead of rebuilding it.
+
+### Prompts (as sent)
+
+> The repository is ~/PycharmProjects/Innlandet-Harness, branch feature/hamar-news-summariser.
+> 1. Set it up on macOS: create .venv, install requirements.txt, run
+>    python -m harness.hamar_news --once --mock, and explain any error. Do not change code.
+> 2. Read the Compulsory 2 section of project_KIUA_2003.pdf. List what the skeleton is missing
+>    against the four technical-minimum requirements and the source constraints, including the
+>    site's robots.txt and terms.
+> 3. Add a code-only output check (exit 0/1) with failing test cases, fill in SPEC.md, and draft
+>    the report in the NeurIPS preprint template [...]. Do not edit eval/. Do not commit. Log this
+>    session in docs/prompt-log-tor.md.
+
+> Run 1 with llama3.2:3b passed 6/11 (output below). Before changing anything, archive the run.
+> Then read every summary, including those that passed, and list problems the check missed. For
+> each problem, propose a repair and a check that would catch it next time. Do not loosen any
+> existing check. Show me the list before implementing.
+
+> Run 3 passed 10/10 (output below). Do not trust the number. Read every summary in full and
+> compare each statement with the source text: who is responsible, what is happening, where, and
+> when. List every statement that is not supported by the source, even if all checks passed.
+
+> Meeting 4 is missing from docs/meetings/ on this branch. Find where it is (branches, remotes,
+> other clones) and explain why, without changing any files. Then propose how to bring it in.
+
+> Evaluate the report as a strict examiner against the brief and each grading criterion. For
+> every number in the report, check that it was measured the same way as the numbers it is
+> compared with.
+
+### What the agent found
+
+**Setup and gaps (prompt 1).** The agent works in a Linux environment against my folder, not on
+macOS, and the municipal site is not reachable from there (proxy 403), so the mock run fails there
+with a network error, not a code error; on my Mac it ran on 03.11. 47 offline tests pass. The check,
+`SPEC.md` and the report already existed, so nothing was rebuilt. The four technical-minimum
+requirements are met; the weak point is that only one stage calls the model. Gaps against the
+source constraints:
+- `robots.txt` allows all agents with `Crawl-delay: 5` (obeyed) but disallows `ClaudeBot`.
+- The privacy page says nothing about reuse, automated access or copyright; no terms found.
+- **New: raw HTML is stored unchanged** in `out/html/`, including names and contact boxes. The
+  text sent to the model is cleaned, but the saved page is not, which conflicts with "must not
+  store information that identifies individuals". Same for the archived runs. Not yet fixed.
+- The User-Agent names the project but gives no contact address or repository URL.
+
+**Run 1 reviewed again (prompt 2).** Problems the check of the time missed, with repair and check:
+
+| Problem | Repair | Check | Status |
+|---|---|---|---|
+| Names in two summaries | Remove names before the model; reject articles about named people | `no_personal_names` | Done 03.11 |
+| *pumpestasjon* as "power station" / "wastewater treatment plant"; *sykkelveg med fortau* as "bike path with a bridge" | Glossary; add *fortau* = pavement | For each glossary term in the source, the English term (or the Norwegian word) is in the summary | Glossary done; *fortau* and the check new |
+| Sub-points | Retry with feedback | `summary_shape` (flat list) | Done 03.11 |
+| Filler: "None mentioned", "not specified" | Prompt rule 4 | Repeated bullets (done); new: flag "not mentioned / not specified" | Partly done |
+| **Invented ways to take part in decided cases**: three decisions said residents "can comment" | Prompt: for decisions, say whether it can be appealed | If the title is a decision (*vedtatt*, *godkjent*), the summary must not say residents can comment, submit or attend | New |
+| A processing time ("up to 5 working days") labelled as the deadline | — | A bullet that says "deadline" must contain a date | New |
+| The check accepted indented sub-lists | Fixed in the check | Test `test_sub_points_fail` | Done 03.11 |
+
+Nothing was implemented, as asked.
+
+**Run 3 fact-checked in full (prompt 3).** Every statement in all ten summaries compared with the
+source. Unsupported or contradicted statements:
+
+1. *Ringgata*: says Hamar kommune is the planner; it is Innlandet fylkeskommune.
+2. *Ringgata*: "bike lane along the existing road"; the source says a cycle path with a pavement.
+3. *Ringgata*: a "public consultation (høring)" on 10.11 at "Hamar City Hall (Fylkeshuset)"; the
+   source describes an open office day at the county hall.
+4. *Ringgata*: the municipality "will conduct environmental impact assessments"; the source says
+   no impact assessment is required.
+5. *Veltvegen*: "the municipality of Hamar is starting the planning work"; a consultancy (the
+   proposer) is, as the summary itself says in its last bullet.
+6. *Veltvegen*: names the contact person (privacy; caught by the new name rules).
+7. *Tilskudd*: "Hamar municipality is launching a funding scheme"; it is a national scheme run by
+   Bufdir with the municipalities.
+8. *Tilskudd*: "individuals must set themselves up in the regulation"; the source tells applicants
+   (organisations) to read the rules.
+9. *Tjuvholmen*: calls *offentlig ettersyn* a "public consultation (høring)" although the glossary
+   says "public inspection".
+10. *Mindre endring*: "also available at the municipal council meeting" is garbled; the source
+    points to the case documents and minutes of that meeting.
+11. *Bolig*: **the whole summary is in Norwegian**, although English was requested.
+12. *Bolig*: the lease "must" run at least three years; the source says the municipality *wishes* so.
+
+No unsupported statements in four summaries (HØP, water and sewerage hearing, centre plan,
+development agreements). Every deadline was correct (10/10). **Strict Level 2 score: 4/10.** The
+responsible body is wrong in 3/10, always replaced by "Hamar municipality" when another body acts,
+so run 3 fails the report's own Level 2 target. The wrong language passed Level 1 because no check
+looks at the language.
+
+**Meeting 4 (prompt 4).** Committed to `main` on 29.10 (`d408803`). Our branch was created from
+`1b4cfd9`, before that commit, and the two branches have since diverged (4 commits each). The file
+was copied to the branch on 03.11 (`5da8b48`) with identical content. Proposal: `git merge
+origin/main` into the branch, then a pull request from the branch into `main`. Files unchanged.
+
+**Strict examiner and numbers (prompt 5).** Checked against the source of each number:
+- Consistent: Level 1 scores (one final check for all runs), 74/91/123 s (all from the "Mode" to
+  the "Done" log line), 17 calls = 10 + 7 retries, six first-attempt failures, 16 and 11 listed
+  articles, 16 glossary terms, 8 prompt rules, 47 tests, 3-day reminder.
+- Not comparable: run 1 time covers 11 articles, runs 2–3 cover 10. Per article: 6.7, 9.1 and
+  12.3 s. Run 2 was slower than run 1 without any retries, which the report does not explain.
+- "About 7 s per article" includes the 5 s crawl delay, so it is not model time.
+- The report says one passing summary had wrong facts; the full check above finds three with the
+  wrong responsible body and one in the wrong language. **The report undercounts.**
+- Level 2 has a target but no reported result; the hand score is now 4/10 and should be reported.
+- Remaining examiner points: the text is still agent-written; the repository must be reachable
+  and `main` must contain the code; the template must match the one on Canvas.
+
+### Outcome
+
+No code or report changed in this session; only this log. The findings above are input for the
+next changes: a language check, an actor check, storing cleaned pages instead of raw HTML, and an
+honest Level 2 result in the report.
+
+---
+
+## 2026-11-05 — Turning the hand check into repairs
+
+**Tool:** Claude in the Claude app, with access to the repository folder on my Mac.
+
+### Prompt (translated)
+
+> Yes, and update prompt-log-tor.md and the report.
+
+This answered the agent's proposal after the previous session: a language check, a check of the
+responsible body, cleaned source data instead of raw HTML, and an honest Level 2 result in the report.
+
+### What the agent did
+
+1. **Language check** (`language` in Level 1): counts common English and Norwegian words and fails
+   a summary written in the wrong one of the two. It catches the Norwegian summary from run 3.
+2. **Responsible-body check** (`responsible_body`): finds bodies the source names as acting
+   ("Innlandet fylkeskommune kunngjør", "Teknaconsult starter", "administreres av Bufdir") and fails
+   a summary that says Hamar municipality is doing it. On the ten run 3 sources it found exactly the
+   three bodies the hand check found, and nothing in the other seven.
+3. **No raw HTML stored:** the run now saves the cleaned article and its dates as
+   `source/<slug>.json`; the check reads that. Old runs' HTML is still read so they can be rescored.
+4. **Every attempt stored** in `attempts/<slug>/attempt-N.md`, with the problems found.
+5. Rescored the three archived runs with the new checks: Level 1 = **5/10, 2/10, 6/10**. The
+   actor and language errors were already in run 2, so they appeared when the prompt was made
+   stricter, not with the retry.
+6. Report: two new rows in the Level 1 table, the runs table with Level 2 (4/10 for run 3) and time
+   per article, the hand-check findings and the failure trace, a new milestone, risks updated, and
+   an appendix excerpt of the session where the better prompts were sent. Main text still 4 pages.
+
+### Verification
+
+`python -m pytest`: 51 passed (new: language, responsible body, every attempt stored, no raw
+HTML). Rescoring the archived runs as above.
+
+### Outcome
+
+The two repeated errors are now caught by code. The remaining error of meaning in run 3 (a claimed
+impact assessment) is left for Level 2 and the evidence-checked extraction stage. The raw HTML
+already in `out/html/` and in the archives still contains names and should be deleted when the old
+runs are no longer needed. The heuristics are narrow (three verbs and a word list) and are named
+as such in the report.
 
 ---
 

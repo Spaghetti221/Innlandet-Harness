@@ -7,12 +7,14 @@ Everything here is decided by code, without a model:
   one_summary_per_article  state.json and the summary files agree, no duplicates or orphans
   header                   title, dates, link, language and model lines are present
   source_link              the link is the article's own hamar.kommune.no/lokaldemokrati URL
-  dates_match_source       Published / Expires equal the dates in the saved HTML page
+  dates_match_source       Published / Expires equal the dates in the saved source data
   summary_shape            the summary is non-empty; real runs have 3-6 flat '- ' bullets, none repeated
   no_contact_details       no e-mail addresses or phone numbers in the summary
   no_personal_names        no personal names in the title or the summary (heuristic, see names.py)
   no_invented_dates        every date in the summary also appears in the source text
   deadline_kept            a date after 'frist', 'innen' or 'senest' in the source is in the summary
+  language                 the summary is in the requested language (English/Norwegian only)
+  responsible_body         the summary does not say Hamar municipality acts when the source names another body
 """
 
 import argparse
@@ -23,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import REPO_ROOT
-from .extract import EMAIL, PHONE, extract_article
+from .extract import EMAIL, PHONE, Article, extract_article
 from .fetch import LISTING_URL, is_article_url
 from .names import find_person_names
 from .summarise import NO_CONTENT
@@ -89,7 +91,69 @@ def source_deadlines(text: str) -> set[tuple[int | None, int, int]]:
     return found
 
 
-def validate_summary(summary: str, article, is_mock: bool) -> list[str]:
+# --- Language: a crude but transparent test on common function words -------------------------
+_NO_WORDS = {"og", "er", "til", "som", "det", "på", "av", "ikke", "skal", "vil", "kan", "du", "fra",
+             "med", "den", "har", "eller", "å", "seg", "oss", "vi", "også", "må", "blir", "ble",
+             "etter", "før", "dette", "disse", "kommunen"}
+_EN_WORDS = {"the", "and", "of", "to", "is", "are", "will", "can", "with", "on", "by", "from", "be",
+             "this", "that", "which", "their", "has", "have", "must", "after", "before", "also", "or"}
+_WORD = re.compile(r"[a-zæøåäöéü]+")
+
+
+def language_problem(summary: str, language: str | None) -> str | None:
+    """Flag a summary written in Norwegian when English was asked for, or the other way round.
+    Other languages are not checked. Run 3 (03.11) produced a Norwegian summary for English."""
+    if not language:
+        return None
+    words = _WORD.findall(summary.lower())
+    no = sum(w in _NO_WORDS for w in words)
+    en = sum(w in _EN_WORDS for w in words)
+    wanted = language.strip().lower()
+    if wanted.startswith("english") and no >= 3 and no > en:
+        return f"language: the summary looks Norwegian ({no} vs {en} common words), but {language} was requested"
+    if wanted.startswith(("norw", "nors", "bokm", "nyno")) and en >= 3 and en > no:
+        return f"language: the summary looks English ({en} vs {no} common words), but {language} was requested"
+    return None
+
+
+# --- Responsible body: who is doing this? -----------------------------------------------------
+# Run 3 named "Hamar municipality" as the actor in three articles where the county, a consultancy
+# or Bufdir was responsible. The source usually names the actor with one of a few verbs.
+_SOURCE_ACTOR = [
+    re.compile(r"((?:[A-ZÆØÅ][\wæøåÆØÅ-]*[ \t]){0,2}[A-ZÆØÅ][\wæøåÆØÅ-]*(?:[ \t](?:AS|ASA|IKS|fylkeskommune|kommune))?)"
+               r"[ \t]+(?:kunngjør|starter|varsler|lyser ut|inviterer)\b"),
+    re.compile(r"administreres av ([A-ZÆØÅ][\wæøåÆØÅ-]+)"),
+]
+# Capitalised words at the start of a sentence that are not organisations.
+_NOT_ACTORS = {"nå", "det", "vi", "kommunen", "planen", "arbeidet", "prosjektet", "her", "da", "snart",
+               "hamar", "hamar kommune", "kommunestyret", "formannskapet", "dette", "hvem", "slik"}
+_SUMMARY_HAMAR_ACTS = re.compile(
+    r"\b(?:the\s+)?(?:municipality\s+of\s+hamar|hamar\s+municipality|hamar\s+kommune)\s+"
+    r"(?:is|has|will|er|har|vil)\s+(?:now\s+|nå\s+)?"
+    r"(?:start|launch|plan|hold|conduct|announc|introduc|begin|initiat|lanser|kunngj)\w*",
+    re.IGNORECASE)
+
+
+def source_actors(text: str) -> list[str]:
+    """Bodies other than Hamar kommune that the source names as responsible."""
+    found: list[str] = []
+    for rule in _SOURCE_ACTOR:
+        for m in rule.finditer(text):
+            actor = m.group(1).strip()
+            if actor.lower() not in _NOT_ACTORS and actor not in found:
+                found.append(actor)
+    return found
+
+
+def responsible_body_problem(summary: str, source_text: str) -> str | None:
+    actors = source_actors(source_text)
+    if actors and _SUMMARY_HAMAR_ACTS.search(summary):
+        return (f"responsible_body: the source names {', '.join(actors)} as responsible, "
+                f"but the summary says Hamar municipality is doing it")
+    return None
+
+
+def validate_summary(summary: str, article, is_mock: bool, language: str | None = None) -> list[str]:
     """Problems with one summary, as 'check: detail' strings. Used by the check and by the
     pipeline, which gives the problems back to the model and asks it to try again."""
     problems: list[str] = []
@@ -113,6 +177,10 @@ def validate_summary(summary: str, article, is_mock: bool) -> list[str]:
     if names:
         # Report how many, never the names themselves: check.json must not hold personal data.
         problems.append(f"no_personal_names: {len(names)} personal name(s) in the summary")
+    if not is_mock:
+        for problem in (language_problem(summary, language), responsible_body_problem(summary, article.text)):
+            if problem:
+                problems.append(problem)
 
     source_dates = find_dates(article.text)
     summary_dates = find_dates(summary)
@@ -136,7 +204,19 @@ class Result:
         self.failures.append(f"{check}: {detail}")
 
 
-def check_article(slug: str, rec: dict, summaries_dir: Path, html_dir: Path) -> Result:
+def load_source(slug: str, source_dir: Path, html_dir: Path | None = None) -> Article | None:
+    """The cleaned article saved by the run. Runs from before 05.11 saved raw HTML instead; that
+    is still read, so archived runs can be rescored."""
+    path = source_dir / f"{slug}.json"
+    if path.exists():
+        return Article(**json.loads(path.read_text(encoding="utf-8")))
+    if html_dir is not None and (html_dir / f"{slug}.html").exists():
+        return extract_article((html_dir / f"{slug}.html").read_text(encoding="utf-8"), LISTING_URL + slug)
+    return None
+
+
+def check_article(slug: str, rec: dict, summaries_dir: Path, source_dir: Path,
+                  html_dir: Path | None = None) -> Result:
     r = Result(slug)
     path = summaries_dir / rec["summary_file"]
     if not path.exists():
@@ -154,22 +234,17 @@ def check_article(slug: str, rec: dict, summaries_dir: Path, html_dir: Path) -> 
     if url != LISTING_URL + slug or not is_article_url(url):
         r.fail("source_link", f"link {url!r} is not {LISTING_URL + slug}")
 
-    html_path = html_dir / f"{slug}.html"
-    article = None
-    if not html_path.exists():
-        r.fail("dates_match_source", f"saved page {html_path.name} is missing")
+    article = load_source(slug, source_dir, html_dir)
+    if article is None:
+        r.fail("dates_match_source", "saved source data is missing or not a single article")
     else:
-        article = extract_article(html_path.read_text(encoding="utf-8"), LISTING_URL + slug)
-        if article is None:
-            r.fail("dates_match_source", "saved page is not a single article")
-        else:
-            if fields.get("Published") != (article.published[:10] or "unknown"):
-                r.fail("dates_match_source",
-                       f"Published {fields.get('Published')} != source {article.published[:10]}")
-            expires = fields.get("Expires / deadline")
-            if (expires or "") != article.expires[:10]:
-                r.fail("dates_match_source",
-                       f"Expires {expires} != source {article.expires[:10] or 'none'}")
+        if fields.get("Published") != (article.published[:10] or "unknown"):
+            r.fail("dates_match_source",
+                   f"Published {fields.get('Published')} != source {article.published[:10]}")
+        expires = fields.get("Expires / deadline")
+        if (expires or "") != article.expires[:10]:
+            r.fail("dates_match_source",
+                   f"Expires {expires} != source {article.expires[:10] or 'none'}")
 
     is_mock = fields.get("Model") == "mock"
     if find_person_names(fields["_title"]):
@@ -178,14 +253,14 @@ def check_article(slug: str, rec: dict, summaries_dir: Path, html_dir: Path) -> 
         if not summary:
             r.fail("summary_shape", "summary is empty")
     else:
-        for problem in validate_summary(summary, article, is_mock):
+        for problem in validate_summary(summary, article, is_mock, fields.get("Summary language")):
             r.fail(*problem.split(": ", 1))
     return r
 
 
 def check_run(out_dir: Path, mock: bool) -> tuple[list[Result], list[str]]:
     root = out_dir / "mock" if mock else out_dir
-    summaries_dir, html_dir = root / "summaries", out_dir / "html"
+    summaries_dir, source_dir, html_dir = root / "summaries", out_dir / "source", out_dir / "html"
     state_path = root / "state.json"
     problems: list[str] = []
     if not state_path.exists():
@@ -202,7 +277,7 @@ def check_run(out_dir: Path, mock: bool) -> tuple[list[Result], list[str]]:
     for slug in sorted({s for s in slugs_on_disk if slugs_on_disk.count(s) > 1}):
         problems.append(f"one_summary_per_article: more than one summary for {slug}")
 
-    results = [check_article(slug, rec, summaries_dir, html_dir)
+    results = [check_article(slug, rec, summaries_dir, source_dir, html_dir)
                for slug, rec in sorted(articles.items())]
     return results, problems
 

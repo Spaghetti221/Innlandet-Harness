@@ -35,13 +35,13 @@ Hamar kommune publishes hearings, plan notices, grant calls and council decision
 \emph{Lokaldemokrati} page. The page has no feed, no e-mail alerts and no API, it is written only in
 Norwegian, and articles disappear when they expire. We build a harness that polls the page, extracts
 each new article, removes personal data, summarises it with a small local language model in the
-reader's language, and checks every summary with code before anyone reads it, sending failures
-back to the model with the reasons. The walking skeleton runs end to end and feeds a phone app. Over
-three runs on the live page, scored with the same final check, the pass rate went from 5/10 to 9/10.
-Reading the output ourselves showed the limit of that number: one passing summary named the wrong
-planner and contradicted its source. We therefore define success on two levels, form checked by code
-on every run and facts checked against a hand-made answer key, and plan the exam version around
-the second.
+reader's language, and checks every summary with code before anyone reads it, sending failures back
+to the model with the reasons. The walking skeleton runs end to end and feeds a phone app. We define
+success on two levels: form and safety checked by code on every run, and facts checked against a
+hand-made answer key. Three runs on the live page show why both are needed. A hand check of the
+third run found every deadline right, but the responsible body wrong in three of ten summaries and
+one summary in the wrong language; only four of ten were free of unsupported statements. We turned
+the two repeatable errors into code checks and report the rest as the target of the exam version.
 \end{abstract}
 
 \noindent\textbf{Repository:} \url{https://github.com/Spaghetti221/Innlandet-Harness}\\
@@ -68,12 +68,13 @@ pulled out and turned into a reminder, and a check of every summary against its 
 near them, international residents and students who read English better than Norwegian, and local
 associations. For every new article the workflow writes one Markdown file with the title, the publish
 and expiry dates, a link to the original, a 3--6 bullet summary in the chosen language and links to the
-saved source; an export step turns reviewed runs into the data file of a phone app.
+saved source; an export step feeds a phone app.
 
 \paragraph{Fit with the constraints.} The source is public, and its \texttt{robots.txt} \citep{rfc9309}
 allows crawling with a \texttt{Crawl-delay} of 5\,s, a non-standard directive the harness obeys. The
 page author is never read; e-mail addresses, phone numbers and names are replaced before text is
-stored or reaches the model; articles whose title names people are rejected. The model runs locally
+stored or reaches the model, and the raw HTML is not kept; articles whose title names people are
+rejected. The model runs locally
 \citep{ollama,llama32}, so no article text leaves the machine.
 
 \section{Definition of success}
@@ -95,61 +96,66 @@ pipeline right after each model answer.
     \toprule
     Check & Passes when \\
     \midrule
-    One summary per article & \texttt{state.json} and the summary files agree; no duplicates or orphans \\
-    Header and link & all header lines present; the link is the article's own \texttt{lokaldemokrati/<slug>} URL \\
-    Dates match source & Published and Expires equal the dates in the saved page \\
+    One summary per article & \texttt{state.json} and the summary files agree \\
+    Header and link & header complete; the link is the article's own URL \\
+    Dates match source & Published and Expires equal the dates in the saved source \\
     Summary shape & 3--6 flat bullet points, none repeated \\
-    No contact details or names & no e-mail, phone number or personal name (three heuristic rules, Section~\ref{sec:arch}) \\
+    No contact details or names & no e-mail, phone number or name (three rules, Section~\ref{sec:arch}) \\
     No invented dates & every date in the summary also appears in the source \\
-    Deadline kept & a date after \emph{frist}, \emph{innen} or \emph{senest} in the source is in the summary \\
+    Deadline kept & a date after \emph{frist}, \emph{innen} or \emph{senest} is in the summary \\
+    Language & as requested, by counts of common English and Norwegian words \\
+    Responsible body & not ``Hamar kommune'' acting when the source names another body \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Level 2: facts, checked against an answer key.} For each article in a fixed test set of saved
-pages we write by hand who is responsible, what is happening, where, what residents can do, the
-deadline and the case number. A summary passes if every statement it makes about these is supported
-by the key and none contradicts it. Our target for the exam is no unsupported statement about the
+\paragraph{Level 2: facts, checked against an answer key.} For each article in a fixed test set we write by hand
+who is responsible, what is happening, where, what residents can do, the deadline and the case
+number. A summary passes if every statement about these is supported by the key. Our target for the exam is no unsupported statement about the
 deadline or the responsible body, and at most one summary in ten with any other unsupported
 statement. Level 2 is scored by hand today; for the exam we plan an LLM judge \citep{zheng2023} on top,
 measured against our hand scores, with its prompt and failure modes documented. A run is successful
-only if both levels pass.
+only if both levels pass. When we first scored run 3 by hand, it met neither target (below).
 
-\paragraph{Three runs on the live page (03.11).} Table~\ref{tab:runs} rescores all runs with the final
-Level 1 check, so the numbers are comparable; the prize article, rejected from run 2 on, is left out of
-run 1. Run 1 failed on sub-points and on names, despite the prompt. Run 2 removed names before the
-model and added an English glossary (run 1 had translated \emph{pumpestasjon} as ``power station''),
-but the model still nested lists wherever the source had one. Run 3 added retry with feedback: six of
-ten summaries failed their first attempt, and all six passed the check of the time after one or two
-retries, at the cost of seven extra calls.
-The remaining failure is a contact name our first name rule missed; two new rules now remove it. Each
-variant ran once on ten articles with a non-deterministic model, so these are observations, not
-measured effects.
+\paragraph{Three runs on the live page (03.11).} Table~\ref{tab:runs} scores all three runs with the
+final Level 1 check, so the numbers are comparable; the prize article, rejected from run 2 on, is left
+out of run 1. Run 1 failed on sub-points and names. Run 2 removed names before the model, added an
+English glossary and a stricter prompt; it fixed the names and the translation of \emph{pumpestasjon},
+but the model kept nesting lists, and, as the two newest checks show, it also began to name Hamar
+kommune as the actor where another body acts, and wrote one summary in Norwegian. Run 3 added retry
+with feedback, which fixed the format (six summaries needed a retry), but not those two errors,
+which no check looked for at the time. Each variant ran once on ten articles with a
+non-deterministic model, so these are observations, not measured effects.
 
 \begin{table}[h]
-  \caption{Runs on the live page, rescored with the final Level 1 check (Llama 3.2 3B, English).}
+  \caption{Runs on the live page (Llama 3.2 3B, English). Level 1 uses the final check for all runs;
+  time per article includes the 5\,s pause between requests.}
   \label{tab:runs}
   \centering\footnotesize
-  \begin{tabular}{@{}cL{7.4cm}ccc@{}}
+  \begin{tabular}{@{}cL{6.6cm}cccc@{}}
     \toprule
-    Run & Change before the run & Level 1 & Model calls & Time \\
+    Run & Change before the run & Level 1 & Level 2 & Calls & s/article \\
     \midrule
-    1 & first version & 5/10 & 11\textsuperscript{a} & 74\,s \\
-    2 & stricter prompt, glossary, names removed before the model, prize article rejected & 5/10 & 10 & 91\,s \\
-    3 & retry with feedback (at most 3 attempts), deadline check & 9/10 & 17 & 123\,s \\
+    1 & first version & 5/10 & -- & 11\textsuperscript{a} & 6.7 \\
+    2 & stricter prompt, glossary, names removed before the model & 2/10 & -- & 10 & 9.1 \\
+    3 & retry with feedback (at most 3 attempts), deadline check & 6/10 & 4/10 & 17 & 12.3 \\
     \bottomrule
-    \multicolumn{5}{@{}l}{\textsuperscript{a}\,Includes the prize article, which later runs reject.}
+    \multicolumn{6}{@{}l}{\textsuperscript{a}\,Includes the prize article, which later runs reject.}
   \end{tabular}
 \end{table}
 
-\paragraph{A failure Level 1 cannot see.} One run 3 summary passed every check but said Hamar kommune
-is the planner (it is the county), called an open office day a ``public consultation'', and claimed an
-impact assessment that the source says is \emph{not} required. Tracing it through the stages: the
-extracted text was correct; the model mixed up two bodies named in the article and dropped a negation;
-the check found the right dates and case number and had nothing that compared who or what. The first
-attempt had failed only on a missing deadline, and we do not yet store earlier attempts, so we cannot
-tell whether the retry introduced the errors. Two repairs follow: keep every attempt, and the
-evidence-checked extraction stage in Section~\ref{sec:arch}.
+\paragraph{What the hand check of run 3 found.} We compared every statement in all ten summaries
+with its source. All ten deadlines were right. Twelve statements were unsupported: in three
+summaries the model named Hamar kommune as the actor where the county, a consultancy or the national
+agency Bufdir acts; one summary was written in Norwegian; one called a public inspection a
+``consultation'' despite the glossary; one claimed an impact assessment the source rules out. Only
+four summaries were free of unsupported statements (Level 2: 4/10). Tracing the actor error through
+the stages: the extracted text named the right body; the model defaulted to the municipality whose
+page it was reading; and no check compared who acts. The wrong language passed because nothing
+checked the language. Both errors repeat, so we added code checks for them (Table~\ref{tab:checks});
+with them, run 3 scores 6/10 on Level 1. Errors of meaning that do not repeat, such as the impact
+assessment, remain for Level 2. We had not stored earlier attempts, so we cannot tell whether a retry
+introduced any of these errors; every attempt is now stored.
 
 \section{Architecture}
 \label{sec:arch}
@@ -181,17 +187,16 @@ after its summary is written, so a failed call is retried on the next run.}
 \label{fig:arch}
 \end{figure}
 
-\paragraph{Stages.} Each stage is a module with its own tests, and stages hand over files on disk, so a
-failed stage can be inspected and rerun. \emph{Discover} keeps only links with a single slug under
-\texttt{/lokaldemokrati/}. \emph{Fetch} sends an identifying User-Agent and waits the longer of our
-delay and the site's. \emph{Extract} accepts only pages marked as single articles, keeps title, lead and
+\paragraph{Stages.} Each stage is a tested module, and stages hand over files on disk. \emph{Discover}
+keeps only article links; \emph{Fetch} sends an identifying User-Agent and obeys the crawl delay. \emph{Extract} accepts only pages marked as single articles, keeps title, lead and
 body, and removes contact details and names by three rules: a known first name followed by a surname;
 capitalised words after phrases such as ``rettes til'' or ``kontaktperson''; capitalised words before a
 contact detail. An article whose title names people is rejected and remembered only as a hash.
 \emph{Budget} cuts text above 6,000 tokens and flags it (the longest article is about 1.2k).
 \emph{Summarise} calls Llama 3.2 3B through Ollama (temperature 0.2, context 8,192); a deterministic
-mock replaces it in tests. \emph{Store} writes one file per article, an index and the state; \emph{Check}
-runs Level 1 and writes \texttt{check.json}; \emph{Export} writes the app's data file.
+mock replaces it in tests. \emph{Store} writes the cleaned source as JSON (never the raw HTML), one summary file per
+article, every model attempt, an index and the state; \emph{Check} runs Level 1; \emph{Export}
+writes the app's data file.
 
 \paragraph{Context the model receives.} Only a system prompt kept as a versioned context file
 (\texttt{prompts/summarise\_system.md}) and the cleaned article inside \texttt{<article>} tags. Its eight
@@ -200,24 +205,19 @@ from the article only, no names, and treating the article as data, not instructi
 glossary of sixteen planning terms. On a retry the model also gets its previous answer and the list of
 failed checks. Nothing else is in the context, so calls cannot drift over a long run.
 
-\paragraph{Context the coding agent receives.} \texttt{CLAUDE.md} (checks to run; never edit
-\texttt{eval/}; no personal data; secrets only in \texttt{.env}), \texttt{SPEC.md}, and
-\texttt{.claude/settings.json}, which denies reading \texttt{.env} and editing \texttt{eval/}.
-
 \paragraph{Digital prototype.} Following the lecturer's advice we built Hamar Reader, a phone app
 built with Expo~\citep{expo}, that shows the summaries in English and Norwegian, labels each notice from keywords
 in its Norwegian title, and sets a reminder three days before the deadline. It reads only the exported
 file and calls neither the site nor the model.
 
-\paragraph{Technical minimum.} (1) \emph{Checkable output}: Level 1 by code, exit 0/1. (2) \emph{Several
-stages}: eight, one of which calls the model, whose answer is checked and returned with feedback.
-(3) \emph{Tools}: HTTP with \texttt{robots.txt}, files as hand-over, a local model server, the check as a
-shell command. (4) \emph{Automatic}: the polling loop and the retry loop run without a person.
+\paragraph{Technical minimum.} Checkable output (Level 1, exit 0/1); eight stages, one of which calls
+the model with feedback; tools (HTTP, files, a model server, shell); and two loops that run without a
+person (polling every six hours, retry).
 
 \paragraph{Planned for the exam.} Stage 5 becomes three: \emph{classify} the notice; \emph{extract} who,
 what, where, deadline and case number as JSON, each value quoting its evidence, which code checks
-against the source with retry; and \emph{summarise} from the verified fields only. This is aimed directly
-at the failure above. Every attempt is stored.
+against the source with retry; and \emph{summarise} from the verified fields only. Extracting
+\emph{who} with evidence is aimed directly at the actor error above.
 
 \section{Schedule}
 
@@ -231,13 +231,13 @@ The demonstration is in week 46 or 47 (slot on Canvas). We plan backwards from t
     \toprule
     Date & Who & Milestone (done when) \\
     \midrule
-    03.11 & TS & Skeleton, three real-model runs, retry loop, Hamar Reader app; 47 offline tests pass \\
-    05.11 & both & Fourth run with the new name rules, all attempts stored; model choice decided \\
+    03.11 & TS & Skeleton, three real-model runs, retry loop, Hamar Reader app \\
+    05.11 & both & Hand check of run 3; language and actor checks; no raw HTML; all attempts stored; run 4 \\
     06.11 & both & \textbf{Compulsory 2 submitted} (retake) \\
-    08.11 & ER & \textbf{Demo frozen:} test set v1 of saved pages with answer keys (typical, boundary, reject); one command scores Level 1 and 2 \\
+    08.11 & ER & \textbf{Demo frozen:} test set with answer keys; one command scores Level 1 and 2 \\
     W46--47 & both & \textbf{Live demonstration} with the app; rehearsal the day before \\
-    15.11 & ER & Classify and extract stages with evidence check; LLM judge measured against hand scores \\
-    20.11 & TS & Kill switch and token budget; two stress tests (prompt injection; site or Ollama outage) with regression runs \\
+    15.11 & ER & Classify and evidence-checked extract stages; LLM judge measured against hand scores \\
+    20.11 & TS & Kill switch, token budget; two stress tests (prompt injection; outage) with regression \\
     27.11 & both & Demo feedback addressed; white paper draft; at least eight meeting reports \\
     03.12 & both & \textbf{White paper submitted}; repository public; commit tagged \texttt{exam} \\
     \bottomrule
@@ -256,11 +256,11 @@ The demonstration is in week 46 or 47 (slot on Canvas). We plan backwards from t
     \toprule
     Risk & L & I & What we do when it happens \\
     \midrule
-    The model states wrong facts in a summary that passes Level 1 (observed 03.11) & H & H & Nothing is exported without a person reading it. Evidence-checked extraction and Level 2 scoring; if the error rate stays high, compare with a larger model (local, or the Claude API under a token budget). \\
-    A personal name reaches a summary (observed 03.11) & M & H & Three removal rules before the model, rejection of articles about named people, a name check, and an export that skips any summary with a name. We count misses on the test set. \\
+    The model states wrong facts or acts outside its instructions (observed: wrong body 3/10, wrong language 1/10) & H & H & Nothing is exported without a person reading it. Evidence-checked extraction and Level 2 scoring; if the error rate stays high, compare with a larger model (local, or the Claude API under a token budget). \\
+    A personal name reaches a summary (observed 03.11) & M & H & Three removal rules before the model, no raw HTML stored, rejection of articles about named people, a name check, and an export that skips any summary with a name. We count misses on the test set. \\
     The site changes layout, so nothing is found & M & H & Unknown pages are rejected. Kill switch: stop after two runs in a row with no articles, or when more than a third of summaries fail Level 1. The demo can replay saved pages. \\
     Automated reading is not welcome: \texttt{robots.txt} blocks ClaudeBot and the terms are silent & M & H & Own User-Agent, \texttt{Crawl-delay} obeyed, one poll every six hours, only short summaries with links. We ask the lecturer and, if needed, the municipality; if the answer is no, we use saved snapshots. \\
-    Ollama is slow or missing on the demo laptop & M & M & About 7\,s per article measured; pre-run outputs and the mock as fallback. \\
+    Ollama is slow or missing on the demo laptop & M & M & 6.7--12.3\,s per article measured, including the 5\,s pause; pre-run outputs and the mock as fallback. \\
     Prompt injection inside an article & L & M & Article wrapped as data; the prompt says to ignore instructions in it; planned stress test. \\
     \bottomrule
   \end{tabular}
@@ -324,6 +324,15 @@ versions of the check, rescored the archived runs with the final check (5/11, 5/
 summary that passed, and checked that the municipal page offers no feed or e-mail alerts.
 \emph{Human decision:} we accepted the two-level definition of success; the Level 2 targets and the
 owners in the schedule are ours to confirm.
+
+\paragraph{04.11, Tor: the better prompts, sent for real.} After the sessions above we wrote better
+versions of our prompts and sent them. The key one: \emph{``Run 3 passed 10/10. Do not trust the
+number. Read every summary in full and compare each statement with the source text: who is
+responsible, what is happening, where, and when. List every statement that is not supported by the
+source, even if all checks passed.''} \emph{Agent:} found twelve unsupported statements, the wrong
+responsible body in three summaries and one summary in Norwegian (Level 2: 4/10), and that the raw
+HTML we stored still held names. \emph{Human decision:} turn the two repeated errors into code checks,
+stop storing raw HTML, store every attempt, and report the hand score instead of the check's 10/10.
 
 \section{Meeting reports}
 
