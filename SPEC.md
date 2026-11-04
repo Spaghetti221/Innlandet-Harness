@@ -23,7 +23,11 @@ to the saved page and extracted text. An `INDEX.md` lists all summaries.
 
 ## Definition of success
 
-An output is correct when `python -m harness.hamar_news.check` passes for it:
+Success has two levels. A run is successful only if both pass.
+
+### Level 1: form and safety, checked by code on every run
+
+`python -m harness.hamar_news.check` exits 0 only if every summary passes:
 
 1. Exactly one summary per article in `state.json`; no duplicates, no orphan files.
 2. The header has title, Published, Original article, Summary language and Model.
@@ -37,9 +41,20 @@ An output is correct when `python -m harness.hamar_news.check` passes for it:
 The pipeline runs checks 5–8 right after the model answers and gives failures back to the
 model for up to three attempts in total.
 
-Planned for the exam (not yet built): an LLM-as-judge check that the summary is in the
-requested language, translates terms correctly and covers the deadline, and a fixed test
-set from saved pages, including the rejected prize article.
+### Level 2: facts, checked against an answer key
+
+Why: on 03.11 a summary passed every Level 1 check but named the wrong planner, turned an open
+office day into a "public consultation" and claimed an impact assessment the source rules out.
+
+For each article in a fixed test set of saved pages (typical, boundary and reject cases,
+including the rejected prize article) we write by hand: who is responsible, what is happening,
+where, what residents can do, the deadline and the case number. A summary passes if every
+statement it makes about these is supported by the key and none contradicts it.
+
+Target for the exam: no unsupported statement about the deadline or the responsible body, and
+at most one summary in ten with any other unsupported statement. Scored by hand now; an LLM
+judge is planned on top, measured against the hand scores, with its prompt and failure modes
+documented.
 
 ## Constraints
 

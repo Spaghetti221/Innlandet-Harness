@@ -29,6 +29,7 @@ Claude Code in the terminal.
 | 03.11 | Challenged | "Why Ollama? Isn't Claude better?" | Proposal to support and compare both; decision open |
 | 03.11 | Challenged | "Where did meeting 4 go?" | Found on `main`; copied to the branch |
 | 03.11 | Corrected | A failed `git show` left an empty `Meeting 4.md` | Replaced with the real file and compared |
+| 04.11 | Corrected | The runs table compared pass rates measured with different check versions | Rescored with the final check: 5/11, 5/10, 9/10 |
 
 ---
 
@@ -299,6 +300,44 @@ the branch into `main`.
 
 > Meeting 4 is missing from `docs/meetings/` on this branch. Find where it is (branches, remotes,
 > other clones) and explain why, without changing any files. Then propose how to bring it in.
+
+---
+
+## 2026-11-04 — Evaluating and improving the report
+
+**Tool:** Claude in the Claude app, in the course project.
+
+### Prompts (translated)
+
+> Evaluate the report against the assignment text and the grading criteria.
+
+> Do it, and improve the report based on the evaluation.
+
+### What the agent did
+
+1. Compared the report with the Compulsory 2 requirements and the five grading criteria.
+2. **Corrected its own earlier work:** the runs table compared pass rates measured with three
+   different versions of the check. Rescored all three archived runs with the final check:
+   5/11, 5/10, 9/10 (previously reported as 6/11, 5/10, 10/10).
+3. Pointed out that the definition of success ("passes the code check") contradicted the
+   wrong-fact summary that passed. Rewrote it as two levels: code checks on every run, and facts
+   against a hand-made answer key on a fixed test set.
+4. Checked the source: the Lokaldemokrati page has no RSS feed, e-mail subscription or
+   notification, only social media links. Added a "What exists already" paragraph.
+5. Traced the wrong-fact failure through the stages and noted that earlier attempts are not
+   stored, so we cannot tell whether the retry introduced the errors.
+6. Added the export and app to the figure, owners to the schedule, raised the access risk to
+   medium, and added references (RFC 9309, Ollama, Llama 3.2, Expo, Maynez et al. 2020,
+   Zheng et al. 2023), each checked to exist.
+
+### To confirm (human)
+
+The Level 2 targets and the owner of each milestone are the agent's proposals.
+
+### Better prompt (in hindsight)
+
+> Evaluate the report as a strict examiner against the brief and each grading criterion. For every
+> number in the report, check that it was measured the same way as the numbers it is compared with.
 
 ---
 
