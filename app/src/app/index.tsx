@@ -92,33 +92,39 @@ function Row({ notice }: { notice: Notice }) {
   const urgent = open && left <= 7;
 
   return (
-    <Link href={{ pathname: '/[slug]', params: { slug: notice.slug } }}>
+    // asChild hands the navigation onPress to the Pressable; without it the Pressable swallows the tap.
+    // The card style sits on an inner View because Link's Slot drops a function or array style on its child.
+    <Link href={{ pathname: '/[slug]', params: { slug: notice.slug } }} asChild>
       <Link.Trigger>
-        <Pressable style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}>
-          <View style={styles.cardTop}>
-            <KindBadge kind={notice.kind} />
-            {open && (
-              <Text style={[styles.countdown, { color: urgent ? colors.warning : colors.deadline }]}>
-                {left === 0 ? t.dueToday : t.daysLeft(left)}
+        <Pressable>
+          {({ pressed }) => (
+            <View style={[styles.card, pressed && { opacity: 0.7 }]}>
+              <View style={styles.cardTop}>
+                <KindBadge kind={notice.kind} />
+                {open && (
+                  <Text style={[styles.countdown, { color: urgent ? colors.warning : colors.deadline }]}>
+                    {left === 0 ? t.dueToday : t.daysLeft(left)}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.title} numberOfLines={3}>
+                {notice.title}
               </Text>
-            )}
-          </View>
-          <Text style={styles.title} numberOfLines={3}>
-            {notice.title}
-          </Text>
-          {summary?.bullets[0] && (
-            <Text style={styles.preview} numberOfLines={2}>
-              {summary.bullets[0].text}
-            </Text>
+              {summary?.bullets[0] && (
+                <Text style={styles.preview} numberOfLines={2}>
+                  {summary.bullets[0].text}
+                </Text>
+              )}
+              <View style={styles.meta}>
+                <Text style={styles.metaText}>
+                  {open ? `${t.deadline} ${formatDate(notice.deadline!, locale)}` : formatDate(notice.published, locale)}
+                </Text>
+                {summary && !summary.passedCheck && (
+                  <Text style={[styles.metaText, { color: colors.warning }]}>{t.unchecked}</Text>
+                )}
+              </View>
+            </View>
           )}
-          <View style={styles.meta}>
-            <Text style={styles.metaText}>
-              {open ? `${t.deadline} ${formatDate(notice.deadline!, locale)}` : formatDate(notice.published, locale)}
-            </Text>
-            {summary && !summary.passedCheck && (
-              <Text style={[styles.metaText, { color: colors.warning }]}>{t.unchecked}</Text>
-            )}
-          </View>
         </Pressable>
       </Link.Trigger>
       <Link.Preview />
