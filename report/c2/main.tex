@@ -41,7 +41,8 @@ success on two levels: form and safety checked by code on every run, and facts c
 hand-made answer key. Three runs on the live page show why both are needed. A hand check of the
 third run found every deadline right, but the responsible body wrong in three of ten summaries and
 one summary in the wrong language; only four of ten were free of unsupported statements. We turned
-the two repeatable errors into code checks and report the rest as the target of the exam version.
+the two repeatable errors into code checks. With them in the retry loop, a fourth run passed 8/10 on
+form but only 3/10 on facts: a better score on the checks did not give better facts.
 \end{abstract}
 
 \noindent\textbf{Repository:} \url{https://github.com/Spaghetti221/Innlandet-Harness}\\
@@ -56,13 +57,11 @@ page, find what is new, read the Norwegian text and note the deadline. Articles 
 they expire (16 listed on 22.10, 11 on 03.11), so a resident who looks once a month can miss a notice
 entirely.
 
-\paragraph{What exists already.} The page offers no RSS feed, e-mail subscription or notification; the
-only follow options are the municipality's social media accounts, and we have not measured how many
-notices are posted there. Plan notices state that affected landowners and authorities are notified
-directly, but tenants, other residents and associations are not. Nothing is offered in other languages.
-In line with the lecturer's advice to build on existing services (Meeting 5), we do not replace the page:
-we add what it lacks, namely a push to the reader, a summary in the reader's language, the deadline
-pulled out and turned into a reminder, and a check of every summary against its source.
+\paragraph{What exists already.} The page offers no RSS feed, e-mail subscription or notification, only
+social media links, and nothing in other languages. Plan notices reach affected landowners directly,
+but not tenants, other residents or associations. Following the lecturer's advice to build on what
+exists (Meeting 5), we add what the page lacks: a push, a summary in the reader's language, the deadline
+as a reminder, and a check of every summary against its source.
 
 \paragraph{Who has the need, and what the workflow produces.} Residents who want to comment on plans
 near them, international residents and students who read English better than Norwegian, and local
@@ -117,18 +116,16 @@ statement. Level 2 is scored by hand today; for the exam we plan an LLM judge \c
 measured against our hand scores, with its prompt and failure modes documented. A run is successful
 only if both levels pass. When we first scored run 3 by hand, it met neither target (below).
 
-\paragraph{Three runs on the live page (03.11).} Table~\ref{tab:runs} scores all three runs with the
-final Level 1 check, so the numbers are comparable; the prize article, rejected from run 2 on, is left
-out of run 1. Run 1 failed on sub-points and names. Run 2 removed names before the model, added an
-English glossary and a stricter prompt; it fixed the names and the translation of \emph{pumpestasjon},
-but the model kept nesting lists, and, as the two newest checks show, it also began to name Hamar
-kommune as the actor where another body acts, and wrote one summary in Norwegian. Run 3 added retry
-with feedback, which fixed the format (six summaries needed a retry), but not those two errors,
-which no check looked for at the time. Each variant ran once on ten articles with a
-non-deterministic model, so these are observations, not measured effects.
+\paragraph{Runs on the live page.} Table~\ref{tab:runs} scores all runs with the final Level 1 check;
+the prize article, rejected from run 2 on, is left out of run 1. Run 2 (stricter prompt, glossary,
+names removed before the model) fixed names and the translation of \emph{pumpestasjon}, but kept
+nested lists and, as the later checks show, began to name Hamar kommune as the actor where another
+body acts. Run 3 added retry with feedback, which fixed the format. Each variant ran once on ten
+articles with a non-deterministic model, so these are observations, not measured effects.
 
 \begin{table}[h]
   \caption{Runs on the live page (Llama 3.2 3B, English). Level 1 uses the final check for all runs;
+  Level 2 is our hand score;
   time per article includes the 5\,s pause between requests.}
   \label{tab:runs}
   \centering\footnotesize
@@ -139,23 +136,26 @@ non-deterministic model, so these are observations, not measured effects.
     1 & first version & 5/10 & -- & 11\textsuperscript{a} & 6.7 \\
     2 & stricter prompt, glossary, names removed before the model & 2/10 & -- & 10 & 9.1 \\
     3 & retry with feedback (at most 3 attempts), deadline check & 6/10 & 4/10 & 17 & 12.3 \\
+    4 & language and responsible-body checks in the retry loop (05.11) & 8/10 & 3/10 & 20 & 13.4 \\
     \bottomrule
     \multicolumn{6}{@{}l}{\textsuperscript{a}\,Includes the prize article, which later runs reject.}
   \end{tabular}
 \end{table}
 
-\paragraph{What the hand check of run 3 found.} We compared every statement in all ten summaries
-with its source. All ten deadlines were right. Twelve statements were unsupported: in three
-summaries the model named Hamar kommune as the actor where the county, a consultancy or the national
-agency Bufdir acts; one summary was written in Norwegian; one called a public inspection a
-``consultation'' despite the glossary; one claimed an impact assessment the source rules out. Only
-four summaries were free of unsupported statements (Level 2: 4/10). Tracing the actor error through
-the stages: the extracted text named the right body; the model defaulted to the municipality whose
-page it was reading; and no check compared who acts. The wrong language passed because nothing
-checked the language. Both errors repeat, so we added code checks for them (Table~\ref{tab:checks});
-with them, run 3 scores 6/10 on Level 1. Errors of meaning that do not repeat, such as the impact
-assessment, remain for Level 2. We had not stored earlier attempts, so we cannot tell whether a retry
-introduced any of these errors; every attempt is now stored.
+\paragraph{What the hand check of run 3 found.} All ten deadlines were right, but twelve statements
+were unsupported: three summaries named Hamar kommune as the actor where the county, a consultancy or
+the national agency Bufdir acts; one was in Norwegian; one claimed an impact assessment the source
+rules out (Level 2: 4/10). Tracing the actor error: the extracted text named the right body, the model
+defaulted to the municipality whose page it read, and no check compared who acts. Both repeated errors
+became Level 1 checks (Table~\ref{tab:checks}); with them run 3 scores 6/10. Every attempt is now stored.
+
+\paragraph{Run 4 (05.11).} With the two new checks in the retry loop, retries fixed the language (1/1),
+the format (4/4) and the actor in one of three summaries. In the other two the model added the right
+body elsewhere but kept the wrong first sentence through all three attempts: the feedback names the
+problem, not the sentence. The hand check fell to 3/10. Every deadline was right, but new errors
+appeared (\emph{startlån}, a housing loan, became ``start-up loans for new businesses''), and the stored
+attempts show one error that a retry introduced: ``the council meeting can be attended'' appears only
+in the second attempt. Raising the Level 1 score did not make the facts better.
 
 \section{Architecture}
 \label{sec:arch}
@@ -217,7 +217,8 @@ person (polling every six hours, retry).
 \paragraph{Planned for the exam.} Stage 5 becomes three: \emph{classify} the notice; \emph{extract} who,
 what, where, deadline and case number as JSON, each value quoting its evidence, which code checks
 against the source with retry; and \emph{summarise} from the verified fields only. Extracting
-\emph{who} with evidence is aimed directly at the actor error above.
+\emph{who} with evidence is aimed directly at the actor error above, and retry feedback will quote the
+failing sentence.
 
 \section{Schedule}
 

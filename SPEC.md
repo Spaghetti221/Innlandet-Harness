@@ -62,6 +62,9 @@ First result (hand check of run 3, 04.11): 4/10 summaries free of unsupported st
 all deadlines right; responsible body wrong in 3/10; one summary in the wrong language.
 The two repeated errors became Level 1 checks 9 and 10.
 
+Run 4 (05.11, checks 9 and 10 in the retry loop): Level 1 8/10, Level 2 3/10. Retries fixed
+language and format but not the actor in 2/3, and one retry introduced a false statement.
+
 ## Constraints
 
 - Public source only; robots.txt (including `Crawl-delay`) is honoured; no personal data

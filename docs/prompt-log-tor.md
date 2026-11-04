@@ -34,6 +34,7 @@ Claude Code in the terminal.
 | 04.11 | Flagged by agent | Full fact check of run 3 (better prompt, sent for real): 12 unsupported statements, wrong body in 3/10, one summary in the wrong language | Strict Level 2: 4/10; report undercounts |
 | 04.11 | Flagged by agent | Raw HTML with names and contact boxes stored in `out/html/` | Fixed 05.11: cleaned JSON instead |
 | 05.11 | Corrected | Run 3's wrong body and wrong language were invisible to code | Two new Level 1 checks; rescored runs 5/10, 2/10, 6/10 |
+| 05.11 | Flagged by agent | Run 4: Level 1 up to 8/10, Level 2 down to 3/10; a retry introduced a false statement | Feedback must quote the failing sentence |
 
 ---
 
@@ -507,6 +508,46 @@ impact assessment) is left for Level 2 and the evidence-checked extraction stage
 already in `out/html/` and in the archives still contains names and should be deleted when the old
 runs are no longer needed. The heuristics are narrow (three verbs and a word list) and are named
 as such in the report.
+
+---
+
+## 2026-11-05 (night) — Run 4: better checks, not better facts
+
+**Tool:** Claude in the Claude app; Ollama with `llama3.2:3b` on the Mac.
+
+### Prompt
+
+The log of `python -m harness.hamar_news --once --out out/run4` (attached as a file, no text).
+
+### What the agent did
+
+1. Ran the check on run 4: **8/10** on Level 1 (20 model calls, 134 s, 13.4 s per article).
+   Ringgata and tilskudd still fail `responsible_body` after three attempts.
+2. Read the stored attempts for those two. In all three attempts the model kept the same first
+   sentence ("The Hamar municipality is launching ...") and only added the right body elsewhere.
+   The feedback names the problem but not the sentence, so the model does not know what to change.
+3. Read the eight passing summaries against the sources (same standard as run 3). Every deadline
+   was right and the actor error in Veltvegen was fixed on attempt 3, but new unsupported statements
+   appeared: *startlån* (a housing loan) became "start-up loans for new businesses"; the water and
+   sewerage plan was said to focus on "reducing the environmental impact" of ageing infrastructure;
+   a rental "must" run three years (the source says the municipality wishes so); "the council
+   meeting can be attended" in a decided case. **Strict Level 2: 3/10.**
+4. Searched the stored attempts: "the council meeting can be attended" appears only in attempt 2,
+   so **a retry introduced it**. First direct evidence that retries can make facts worse.
+5. Archived the run in `out/archive/2026-11-05_run4_llama3.2-3b_allchecks/` and added run 4 to
+   the report (table row and a paragraph), keeping the main text at 4 pages.
+
+### Outcome
+
+Level 1 rose from 6/10 to 8/10 while Level 2 fell from 4/10 to 3/10. Optimising for the checks did
+not improve the facts. Next: retry feedback that quotes the failing sentence and names the body the
+source gives; then the evidence-checked extraction stage.
+
+### Better prompt (in hindsight)
+
+> Here is the log of run 4. Run the check, read the stored attempts of every summary that needed a
+> retry, and tell me for each retry whether it fixed the problem, left it, or introduced a new one.
+> Then hand-check all summaries against the sources with the same standard as run 3.
 
 ---
 
