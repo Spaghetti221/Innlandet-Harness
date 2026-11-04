@@ -6,9 +6,14 @@ Two-person course project building an agentic workflow. See `SPEC.md` for scope.
 
 Python 3.11+ with a venv in `.venv/` (`pip install -r requirements.txt`).
 
+Hamar news summariser (`harness/hamar_news/`):
 - Tests: `python -m pytest` (offline, synthetic fixtures)
 - Smoke run without a model: `python -m harness.hamar_news --once --mock`
 - Output check (exit 0/1): `python -m harness.hamar_news.check --mock`
+
+MET probe from task 001 (`harness/probe.py`, Python standard library only):
+- `scripts/check.sh` — probe → `eval/check_probe.py` → summarise with `claude -p` (writes only to `out/`) → `eval/check_summary.py`
+- `scripts/check.sh --offline` — same, reading `fixtures/met_hamar.json`
 
 ## Rules
 
