@@ -22,7 +22,7 @@
 \title{Hamar Lokaldemokrati Digest:\\ Municipal Notices in the Reader's Language,\\ Checked Before They Are Read}
 
 \author{%
-  Tor Einar Skarderud \qquad Edvard Ulven Refsdal\\
+  Group 13\\
   KIUA-2003 Applikasjon av kunstig intelligens/maskinlæring II\\
   University of Inland Norway, Hamar\\
 }
@@ -226,19 +226,19 @@ The demonstration is in week 46 or 47 (slot on Canvas). We plan backwards from t
 (09.11), freezing the demo version on 08.11; a week 47 slot gives an extra week of stress testing.
 
 \begin{table}[h]
-  \caption{Milestones, planned backwards from the demonstration. TS = Tor, ER = Edvard.}
+  \caption{Milestones, planned backwards from the demonstration. A and B are the two group members.}
   \centering\footnotesize
   \begin{tabular}{@{}llL{10.6cm}@{}}
     \toprule
     Date & Who & Milestone (done when) \\
     \midrule
-    03.11 & TS & Skeleton, three real-model runs, retry loop, Hamar Reader app \\
+    03.11 & A & Skeleton, three real-model runs, retry loop, Hamar Reader app \\
     05.11 & both & Hand check of run 3; language and actor checks; no raw HTML; all attempts stored; run 4 \\
     06.11 & both & \textbf{Compulsory 2 submitted} (retake) \\
-    08.11 & ER & \textbf{Demo frozen:} test set with answer keys; one command scores Level 1 and 2 \\
+    08.11 & B & \textbf{Demo frozen:} test set with answer keys; one command scores Level 1 and 2 \\
     W46--47 & both & \textbf{Live demonstration} with the app; rehearsal the day before \\
-    15.11 & ER & Classify and evidence-checked extract stages; LLM judge measured against hand scores \\
-    20.11 & TS & Kill switch, token budget; two stress tests (prompt injection; outage) with regression \\
+    15.11 & B & Classify and evidence-checked extract stages; LLM judge measured against hand scores \\
+    20.11 & A & Kill switch, token budget; two stress tests (prompt injection; outage) with regression \\
     27.11 & both & Demo feedback addressed; white paper draft; at least eight meeting reports \\
     03.12 & both & \textbf{White paper submitted}; repository public; commit tagged \texttt{exam} \\
     \bottomrule
@@ -281,7 +281,7 @@ The demonstration is in week 46 or 47 (slot on Canvas). We plan backwards from t
 
 \section{Prompt logs (excerpts)}
 
-\paragraph{22.10, Edvard: choosing the problem.} \emph{Prompt (condensed):} ``Read the Compulsory 2
+\paragraph{22.10, member B: choosing the problem.} \emph{Prompt (condensed):} ``Read the Compulsory 2
 section and find two real and relevant community problems in Hamar, compare them with a third
 problem I've thought of, rubbish collection, and identify the one with the most potential. Do not
 write any code yet.'' \emph{Agent:} proposed a municipal hearings digest (P1) and a deduplicated
@@ -291,7 +291,7 @@ solutions, source access, stages, checkability and reject cases. It recommended 
 on 29.10 we noted that we could not yet confirm that automated access to the municipal site was
 allowed.
 
-\paragraph{29.10, Edvard: building the skeleton.} \emph{Prompt (condensed):} ``Fetch new articles from
+\paragraph{29.10, member B: building the skeleton.} \emph{Prompt (condensed):} ``Fetch new articles from
 hamar.kommune.no/lokaldemokrati, save the HTML, strip all but the article text, and feed it to a
 local Llama 3.2 3B for summarisation. Do not install or run a model here; add a mock mode. Let
 the user choose and save the summary language. Check every six hours, but make it easy to test
@@ -303,7 +303,7 @@ scrubbing of contact details, wrote the system prompt, mock mode, profiles, and 
 measured articles at 140--510 words and recommended a context of at least 4,096 tokens (8,192
 configured). \emph{Human decision:} nothing committed until reviewed.
 
-\paragraph{03.11, Tor: running it and starting C2.} \emph{Prompt (condensed):} ``Help me open and run
+\paragraph{03.11, member A: running it and starting C2.} \emph{Prompt (condensed):} ``Help me open and run
 this in PyCharm'', followed by the error \texttt{No module named 'bs4'}, then ``start C2''.
 \emph{Agent:} fixed the environment, read the brief and the code, and checked
 \texttt{robots.txt}. \emph{Correction found:} the site sets \texttt{Crawl-delay: 5} but the code
@@ -317,7 +317,7 @@ deadline; this was wrong (it had read lines cut at 170 characters) and was withd
 direct check. Asked why we use Ollama and not Claude, it suggested supporting both and comparing. \emph{Human decision:} not yet made; the pair
 decides before 05.11.
 
-\paragraph{04.11, Tor: evaluating the report.} \emph{Prompt (translated):} ``Evaluate the report against
+\paragraph{04.11, member A: evaluating the report.} \emph{Prompt (translated):} ``Evaluate the report against
 the assignment text and the grading criteria'', then ``Do it, and improve the report based on the
 evaluation''. \emph{Agent:} found that the runs table compared pass rates measured with three different
 versions of the check, rescored the archived runs with the final check (5/11, 5/10, 9/10 instead of 6/11,
@@ -326,7 +326,7 @@ summary that passed, and checked that the municipal page offers no feed or e-mai
 \emph{Human decision:} we accepted the two-level definition of success; the Level 2 targets and the
 owners in the schedule are ours to confirm.
 
-\paragraph{04.11, Tor: the better prompts, sent for real.} After the sessions above we wrote better
+\paragraph{04.11, member A: the better prompts, sent for real.} After the sessions above we wrote better
 versions of our prompts and sent them. The key one: \emph{``Run 3 passed 10/10. Do not trust the
 number. Read every summary in full and compare each statement with the source text: who is
 responsible, what is happening, where, and when. List every statement that is not supported by the
@@ -377,7 +377,7 @@ criterion of dropping candidates that were ``largely solved already''. \emph{Dec
 continue with the news app for local politics as our Compulsory 2 project. Status the same day:
 three real-model runs, repairs, a retry-with-feedback loop, and in the evening a first
 version of the Hamar Reader app as the digital prototype.
-\emph{Actions:} third run with the retry loop (Tor, 05.11); decide whether to add the Claude API
+\emph{Actions:} third run with the retry loop (member A, 05.11); decide whether to add the Claude API
 (both, 05.11); rewrite the report in our own words (both, 05.11); submit (06.11); plan the demo
 storyline around the app (08.11).
 
