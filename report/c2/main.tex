@@ -79,8 +79,8 @@ rejected. The model runs locally
 \section{Definition of success}
 \label{sec:success}
 
-Our runs show that a small model can write fluent summaries that its source does not support, so
-we separate what code can decide from what it cannot.
+Our runs show that the small model we use, Llama 3.2 3B \citep{llama32}, can write fluent summaries
+that its source does not support, so we separate what code can decide from what it cannot.
 
 \paragraph{Level 1: form and safety, checked by code on every run.} \texttt{python -m
 harness.hamar\_news.check} exits 0 only if every summary passes all checks in Table~\ref{tab:checks},
