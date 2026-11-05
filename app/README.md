@@ -3,18 +3,29 @@
 Expo app that shows the summaries the harness writes to `out/`, in English and Norwegian.
 Opens in Expo Go.
 
-```bash
-# from the repo root: one run per summary language (Norwegian into out/no)
-python -m harness.hamar_news --once
-python -m harness.hamar_news --once --out out/no --config <copy of config.json with "language": "Norwegian (bokmål)">
+Needs Node.js (LTS) and the Expo Go app on the phone.
 
-# turn both runs into app data (add --mock for the mock runs)
-python -m harness.hamar_news.export
+```bash
+# from the repo root: export a run (here the offline eval run) into app data
+python -m harness.hamar_news.export --run out/eval
+# optional: also a Norwegian run, then export both (one --run per language)
+#   python -m harness.hamar_news --replay fixtures/hamar_news/live-2026-11-05 --out out/eval-no \
+#       --config <copy of config.json with "language": "Norwegian (bokmål)">
+#   python -m harness.hamar_news.export --run out/eval --run out/eval-no
 
 cd app
-npm install
-npx expo start   # in a normal terminal, so the QR code shows; add --tunnel if the phone can't connect
+npm install      # first time only
+npm start        # QR code: scan with the phone (same Wi-Fi), or press w for the browser
 ```
+
+If the phone cannot connect, use `npx expo start --tunnel`. Press `r` to reload after a new export.
+
+### Testing
+
+- `npm run lint` and `npx tsc --noEmit` in `app/`; `python -m pytest tests/test_export.py` in the repo root.
+- By hand: list shows type and deadline for each notice; EN/NO switch; warning on a summary that
+  failed the check; detail view with bullets and a link to the original; reminder three days before
+  the deadline (phone only).
 
 The data is bundled into the app from `src/data/summaries.json`, which is git-ignored.
 Without it, `npm start` uses the synthetic `src/data/sample.json`. Re-run the export and

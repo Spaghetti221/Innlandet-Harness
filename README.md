@@ -28,6 +28,29 @@ python -m pytest                                      # offline unit tests
 Level 2 (facts against an answer key) is scored by hand for now; a one-command version is
 task 006. Results of the runs so far are in the report (`report/c2/`).
 
+## Run and test the app (Hamar Reader)
+
+The phone app shows the checked summaries. It needs [Node.js](https://nodejs.org) (LTS) on the
+computer and the **Expo Go** app on the phone (App Store / Google Play).
+
+```bash
+python -m harness.hamar_news.export --run out/eval     # summaries of a run -> app/src/data/summaries.json
+cd app
+npm install                                           # first time only
+npm start                                             # starts Expo and shows a QR code
+```
+
+- **Phone:** scan the QR code with the camera (iPhone) or with Expo Go (Android). The phone and
+  the computer must be on the same Wi-Fi; otherwise use `npx expo start --tunnel`.
+- **Browser:** press `w` in the terminal. **iOS simulator:** press `i` (needs Xcode).
+- Without an export, the app shows synthetic sample data. After a new export, press `r` to reload.
+
+**Testing the app:** `npm run lint` and `npx tsc --noEmit` (in `app/`), and
+`python -m pytest tests/test_export.py` for the export. By hand: the list shows every notice with
+its type and deadline; the EN/NO switch changes language; a summary that failed the check shows a
+warning; opening a notice shows the bullets and a link to the original; a reminder can be set three
+days before the deadline (needs a phone, not the browser). More in [app/README.md](app/README.md).
+
 ## Layout
 
 | Path | Purpose |
