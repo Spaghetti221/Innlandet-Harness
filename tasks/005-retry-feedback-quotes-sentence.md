@@ -1,6 +1,9 @@
 # Task 005: Retry feedback that quotes the failing sentence
 
-> Status: **planned** (member A), before the demo.
+> Status: **implemented 05.11.2026** (member A); the test with a fake model passes. The real-model
+> acceptance run is pending. Baseline: eval run 1 on the saved inputs (05.11, before this task)
+> passed 7/10, with all three actor errors left after three attempts each
+> (`out/archive/2026-11-05_eval1_baseline/`).
 
 ## Goal
 

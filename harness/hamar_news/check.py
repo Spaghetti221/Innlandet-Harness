@@ -27,7 +27,7 @@ from pathlib import Path
 from .config import REPO_ROOT
 from .extract import EMAIL, PHONE, Article, extract_article
 from .fetch import LISTING_URL, is_article_url
-from .names import find_person_names
+from .names import find_person_names, scrub_person_names
 from .summarise import NO_CONTENT
 
 MONTHS = {
@@ -145,12 +145,32 @@ def source_actors(text: str) -> list[str]:
     return found
 
 
+def _sentence_around(text: str, start: int, end: int) -> str:
+    """The sentence (within one bullet line) that contains text[start:end]."""
+    line_start = text.rfind("\n", 0, start) + 1
+    line_end = text.find("\n", end)
+    line = text[line_start: line_end if line_end != -1 else len(text)]
+    offset = start - line_start
+    begin = max(line.rfind(". ", 0, offset) + 2, 0) if line.rfind(". ", 0, offset) != -1 else 0
+    stop = line.find(". ", offset)
+    sentence = line[begin: stop + 1 if stop != -1 else len(line)]
+    return sentence.lstrip("-*+ \t").strip()
+
+
 def responsible_body_problem(summary: str, source_text: str) -> str | None:
+    """Fail when the summary says Hamar municipality acts but the source names another body.
+    Task 005: the message quotes the failing sentence and names the body, because in run 4 and
+    the first eval run the model kept the same wrong sentence when told only what was wrong."""
     actors = source_actors(source_text)
-    if actors and _SUMMARY_HAMAR_ACTS.search(summary):
-        return (f"responsible_body: the source names {', '.join(actors)} as responsible, "
-                f"but the summary says Hamar municipality is doing it")
-    return None
+    match = _SUMMARY_HAMAR_ACTS.search(summary)
+    if not (actors and match):
+        return None
+    # The sentence is model output; never pass a personal name on to logs or the model.
+    sentence = scrub_person_names(_sentence_around(summary, match.start(), match.end()))
+    bodies = ", ".join(actors)
+    return (f"responsible_body: the sentence \"{sentence}\" says Hamar municipality is doing it, "
+            f"but the source names {bodies} as responsible. Rewrite that sentence so that "
+            f"{actors[0]} is the one acting, as the source says.")
 
 
 def validate_summary(summary: str, article, is_mock: bool, language: str | None = None) -> list[str]:

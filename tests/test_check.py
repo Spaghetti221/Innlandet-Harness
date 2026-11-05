@@ -182,3 +182,42 @@ def test_source_data_is_cleaned_and_no_raw_html(tmp_path):
     stored = (tmp_path / "source" / "si-din-mening-om-testplan-for-eksempelvegen.json").read_text()
     assert "postmottak@example.org" not in stored and "FIXTURE-AUTHOR-NAME" not in stored
     assert not list(tmp_path.rglob("*.html"))
+
+
+def test_responsible_body_feedback_quotes_the_sentence():
+    # Task 005: run 4 and eval run 1 kept the wrong first sentence through all three attempts.
+    source = "Ordningen administreres av Bufdir i samarbeid med kommunene."
+    summary = ("- The Hamar municipality is launching a funding scheme for 2027. It is open to all.\n"
+               "- Applications are due 13 November 2026.")
+    problem = responsible_body_problem(summary, source)
+    assert '"The Hamar municipality is launching a funding scheme for 2027."' in problem
+    assert "Bufdir is the one acting" in problem
+    assert "It is open to all" not in problem  # only the failing sentence
+
+
+class ActorFixedWhenQuoted:
+    """Repeats the wrong actor unless the feedback quotes the sentence (like the real model)."""
+
+    name = "llama3.2:3b"
+
+    def __init__(self):
+        self.feedback: list[str] = []
+
+    def summarise(self, text, language, previous=None, problems=None):
+        quoted = any('"The Hamar municipality is launching' in p for p in (problems or []))
+        self.feedback += problems or []
+        first = ("- Eksempelkonsult is starting the planning work for a test plan." if quoted
+                 else "- The Hamar municipality is launching a test plan for Eksempelvegen.")
+        return first + "\n- It concerns planID 0403-9999.\n- Comments are due 30. november 2026."
+
+
+def test_quoted_feedback_reaches_the_model(tmp_path):
+    from test_hamar_news import _pages
+
+    pages = _pages()
+    pages[ARTICLE_URL] = pages[ARTICLE_URL].replace("Kommunen ønsker innspill",
+                                                    "Eksempelkonsult starter nå arbeidet. Kommunen ønsker innspill")
+    model = ActorFixedWhenQuoted()
+    run_once(CONFIG, FakeFetcher(pages), model, Store(tmp_path, mock=False))
+    assert any("Rewrite that sentence" in p for p in model.feedback)
+    assert _failures(tmp_path) == []

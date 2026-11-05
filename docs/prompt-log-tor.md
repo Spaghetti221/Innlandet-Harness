@@ -588,6 +588,43 @@ title, lead, body and dates, which the evaluation needs. Worth confirming with t
 
 ---
 
+## 2026-11-05 (afternoon) — First eval run, and task 005
+
+**Tool:** Claude in the Claude app; Ollama with `llama3.2:3b` on the Mac.
+
+### Prompt
+
+The log of the first eval run on the saved inputs (attached as a file, no text):
+`python -m harness.hamar_news --replay fixtures/hamar_news/live-2026-11-05 --out out/eval`
+and `python eval/check_summaries.py --out out/eval`.
+
+### What the agent did
+
+1. Read the result: **7/10** on Level 1, 20 model calls, 112 s (11.2 s per article, no crawl
+   delay offline). Retries fixed format (4/4) and language (1/1). All three actor errors were
+   left after three attempts. In run 4 the Veltvegen one had been fixed on attempt 3, so whether
+   a retry helps varies from run to run.
+2. Confirmed from the stored attempts that the first sentence of the Bufdir summary was the
+   same in all three attempts.
+3. Archived the run as the baseline for task 005 (`out/archive/2026-11-05_eval1_baseline/`).
+4. Implemented **task 005**: the `responsible_body` problem now quotes the failing sentence and
+   says which body the source names, e.g. *the sentence "The Hamar municipality is launching a
+   funding scheme …" says Hamar municipality is doing it, but the source names Bufdir as
+   responsible. Rewrite that sentence so that Bufdir is the one acting.* The sentence is passed
+   through the name scrubber first, since it is model output that ends up in logs.
+
+### Verification
+
+`python -m pytest`: 55 passed (new: the message quotes only the failing sentence; a fake model
+that only fixes the actor when the sentence is quoted passes after one retry).
+
+### Next
+
+Run the eval again with the real model (`--out out/eval2`) and compare with the baseline: the
+acceptance in task 005 is at least 2 of the 3 actor errors fixed.
+
+---
+
 ## Lessons
 
 1. **Read the output, not only the check.** The first check passed summaries with names and
