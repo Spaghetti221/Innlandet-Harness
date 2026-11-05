@@ -551,6 +551,43 @@ source gives; then the evidence-checked extraction stage.
 
 ---
 
+## 2026-11-05 (midday) — Lining the repository up with the course structure
+
+**Tool:** Claude in the Claude app, with access to the repository folder on my Mac.
+
+### Prompt
+
+> [Screenshot of the W40 slide "Your repo: every folder has a job"] This is the structure of the
+> assignment. Does it line up with the project? If not then make changes.
+
+### What the agent did
+
+1. Compared the repository with the slide folder by folder. Matching: README, SPEC, CLAUDE.md,
+   `harness/`, `docs/meetings/` (5 of at least 8), `docs/prompt-log.md`, `.claude/settings.json`,
+   `.env.example`, `.gitignore`. Gaps: `tasks/` had only task 001; the summary check lived in
+   `harness/`, not `eval/`; `fixtures/` had no saved real inputs; the README had no eval run.
+2. **Asked before touching `eval/`**, as `CLAUDE.md` requires. I said yes.
+3. `tasks/002`–`004` record finished work with its acceptance check, marked as written afterwards;
+   `tasks/005` (retry feedback that quotes the failing sentence) and `tasks/006` (test set with
+   answer keys and one-command evaluation) are the next tasks.
+4. `eval/check_summaries.py`: the fixed entry point for the Level 1 check.
+5. `fixtures/hamar_news/live-2026-11-05/`: the ten cleaned notices from run 4 (checked: no names,
+   e-mail addresses or phone numbers), and `--replay DIR` to run the harness on them offline.
+6. README: "Reproduce a normal run and an eval run" at the top, and a layout table that follows
+   the slide. `CLAUDE.md` checks updated.
+
+### Verification
+
+`python -m pytest`: 53 passed (new: replay offline, no personal data in the saved inputs). Replay
+with the mock model followed by `eval/check_summaries.py`: 10/10 PASS.
+
+### Open
+
+Committing the ten notices republishes public municipal text in our repository; we keep only
+title, lead, body and dates, which the evaluation needs. Worth confirming with the lecturer.
+
+---
+
 ## Lessons
 
 1. **Read the output, not only the check.** The first check passed summaries with names and

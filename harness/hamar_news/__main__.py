@@ -1,4 +1,4 @@
-"""CLI: python -m harness.hamar_news [--once] [--mock] [--profile test|prod] [--language X]"""
+"""CLI: python -m harness.hamar_news [--once] [--mock] [--replay DIR] [--profile test|prod] [--language X]"""
 
 import argparse
 import logging
@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .config import CONFIG_PATH, REPO_ROOT, interval_for, load_config, set_language
 from .fetch import Fetcher
-from .pipeline import run_forever, run_once
+from .pipeline import run_forever, run_once, run_replay
 from .store import Store
 from .summarise import MockSummariser, OllamaSummariser
 
@@ -19,6 +19,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     p.add_argument("--once", action="store_true", help="run a single pass and exit")
     p.add_argument("--mock", action="store_true", help="use a fake summariser instead of Ollama")
+    p.add_argument("--replay", type=Path, metavar="DIR",
+                   help="summarise saved inputs from DIR (e.g. fixtures/hamar_news/live-2026-11-05) "
+                        "instead of fetching the site; runs once")
     p.add_argument("--profile", default="prod", help="interval profile from config.json (prod, test)")
     p.add_argument("--interval", type=int, help="override the polling interval in seconds")
     p.add_argument("--language", help="set the summary language (saved to config.json), then run")
@@ -55,7 +58,10 @@ def main(argv=None) -> int:
     fetcher = Fetcher(delay_seconds=config["request_delay_seconds"])
     store = Store(args.out, mock=args.mock)
     try:
-        if args.once:
+        if args.replay:
+            written = run_replay(config, args.replay, summariser, store)
+            log.info("Done: %d new summaries in %s", len(written), store.summaries_dir)
+        elif args.once:
             written = run_once(config, fetcher, summariser, store)
             log.info("Done: %d new summaries in %s", len(written), store.summaries_dir)
         else:

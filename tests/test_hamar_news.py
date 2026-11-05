@@ -159,3 +159,26 @@ def test_failed_summary_is_retried(tmp_path):
     assert run_once(config, FakeFetcher(_pages()), Broken(), Store(tmp_path, mock=False)) == []
     again = run_once(config, FakeFetcher(_pages()), MockSummariser(), Store(tmp_path, mock=False))
     assert len(again) == 1
+
+
+def test_replay_runs_offline_from_saved_inputs(tmp_path):
+    from harness.hamar_news.pipeline import run_replay
+
+    fixtures = FIXTURES / "live-2026-11-05"
+    store = Store(tmp_path, mock=True)
+    written = run_replay({"language": "English", "max_input_tokens": 6000}, fixtures,
+                         MockSummariser(), store)
+    assert len(written) == len(list(fixtures.glob("*.json"))) == 10
+    # Same input again: nothing new, nothing fetched.
+    assert run_replay({"language": "English", "max_input_tokens": 6000}, fixtures,
+                      MockSummariser(), Store(tmp_path, mock=True)) == []
+
+
+def test_saved_inputs_hold_no_personal_data():
+    from harness.hamar_news.extract import EMAIL, PHONE
+    from harness.hamar_news.names import find_person_names
+
+    for f in (FIXTURES / "live-2026-11-05").glob("*.json"):
+        data = json.loads(f.read_text(encoding="utf-8"))
+        text = "\n".join([data["title"], data["lead"], data["body"]])
+        assert not find_person_names(text) and not EMAIL.search(text) and not PHONE.search(text), f.name

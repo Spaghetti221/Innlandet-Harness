@@ -3,31 +3,51 @@
 Two-person course project (KIUA-2003, INN) building an agentic workflow for the Innlandet region.
 The problem, users and definition of success are in [SPEC.md](SPEC.md).
 
-**Quick start (walking skeleton, no model needed):**
+## Reproduce a normal run and an eval run
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\activate
 pip install -r requirements.txt
-python -m harness.hamar_news --once --mock           # fetch, extract, summarise (mock)
-python -m harness.hamar_news.check --mock            # check the output: prints PASS/FAIL, exit 0/1
 ```
+
+**Normal run** (live site; add `--mock` if no model is installed, see *Setup* below for Ollama):
+
+```bash
+python -m harness.hamar_news --once --out out/run      # fetch, extract, summarise, check, store
+python eval/check_summaries.py --out out/run           # Level 1 check: prints PASS/FAIL, exit 0/1
+```
+
+**Eval run** (offline, the same ten saved real notices every time, so results can be compared):
+
+```bash
+python -m harness.hamar_news --replay fixtures/hamar_news/live-2026-11-05 --out out/eval
+python eval/check_summaries.py --out out/eval
+python -m pytest                                      # offline unit tests
+```
+
+Level 2 (facts against an answer key) is scored by hand for now; a one-command version is
+task 006. Results of the runs so far are in the report (`report/c2/`).
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
 | `SPEC.md` | Problem, users, definition of success |
-| `tasks/` | Task definitions for the workflow |
+| `README.md` | How to reproduce a normal run and an eval run (this file) |
+| `CLAUDE.md` | How the coding agent works in this repo |
+| `tasks/` | One `.md` per task, each with an acceptance check (001–006) |
 | `harness/hamar_news/` | The harness: fetch → extract → summarise → store, plus the output check |
 | `harness/hamar_news/prompts/` | Context files: the system prompt, and an English glossary of planning terms |
 | `harness/hamar_news/data/first_names.txt` | First names used to find and remove personal names |
 | `config.json` | Run settings: language, model, intervals, request delay |
-| `eval/` | Evaluation cases and scoring — do not edit without agreement |
-| `fixtures/` | Test inputs (no personal data) |
-| `docs/meetings/` | Meeting notes |
+| `eval/` | Checks: `check_probe.py` (task 001), `check_summaries.py` (Level 1 for the summaries); test set and keys later (task 006). Do not edit without agreement |
+| `fixtures/` | Saved inputs, offline and reproducible: `hamar_news/live-2026-11-05/` (ten real notices, cleaned), synthetic pages for the unit tests, `met_hamar.json` |
+| `docs/meetings/` | Weekly meeting reports (at least 8 for the exam) |
 | `app/` | Hamar Reader: Expo phone app that shows the summaries (see [app/README.md](app/README.md)) |
 | `report/c2/` | Compulsory 2 report (LaTeX, NeurIPS preprint style): `main.tex`, `main.pdf` |
-| `docs/prompt-log.md` | Log of prompts used during development |
+| `docs/prompt-log.md` | Agent output we corrected, challenged or rejected (summary; details per member in `prompt-log-*.md`) |
+| `.claude/settings.json` | Shared permission rules for the coding agent |
+| `.env.example` | Names of secrets, never values |
 | `out/` | Run outputs (git-ignored) |
 
 ## Setup

@@ -1,5 +1,7 @@
-"""One polling pass (run_once) and the polling loop (run_forever)."""
+"""One polling pass (run_once), an offline pass over saved inputs (run_replay), and the polling
+loop (run_forever)."""
 
+import json
 import logging
 import time
 from pathlib import Path
@@ -7,7 +9,7 @@ from pathlib import Path
 import requests
 
 from .check import validate_summary
-from .extract import extract_article
+from .extract import Article, extract_article
 from .fetch import discover_articles, slug_of
 from .store import Store
 from .summarise import truncate
@@ -39,27 +41,61 @@ def run_once(config: dict, fetcher, summariser, store: Store) -> list[Path]:
             log.info("Rejected article %s: its title names people", store.digest(article.slug))
             store.mark_rejected(article.slug)
             continue
-        store.save_source(article)
-        store.save_text(article)
-
-        text, truncated = truncate(article.text, config["max_input_tokens"])
         try:
-            summary, attempts, problems = summarise_checked(summariser, article, text, language,
-                                                            config.get("max_attempts", 3), store)
+            path = process_article(article, config, summariser, store)
         except requests.ConnectionError as exc:
             log.error("Model server unreachable (%s); stopping this run, will retry next time", exc)
             break
-        except Exception as exc:
-            log.error("Summarising %s failed: %s; will retry next run", url, exc)
-            continue
-
-        path = store.write_summary(article, summary, language, summariser.name, truncated,
-                                   attempts=attempts, problems=problems)
-        store.mark_done(article, path, language, summariser.name, attempts, problems)
-        written.append(path)
-        log.info("Wrote %s", path)
+        if path is not None:
+            written.append(path)
 
     store.write_index()
+    return written
+
+
+def process_article(article: Article, config: dict, summariser, store: Store) -> Path | None:
+    """Store the cleaned article, summarise it with checks and retries, and write the summary.
+    Returns the summary path, or None if summarising failed (it is retried on the next run).
+    A ConnectionError from the model server is passed on so the caller can stop the run."""
+    language = config["language"]
+    store.save_source(article)
+    store.save_text(article)
+    text, truncated = truncate(article.text, config["max_input_tokens"])
+    try:
+        summary, attempts, problems = summarise_checked(summariser, article, text, language,
+                                                        config.get("max_attempts", 3), store)
+    except requests.ConnectionError:
+        raise
+    except Exception as exc:
+        log.error("Summarising %s failed: %s; will retry next run", article.url, exc)
+        return None
+    path = store.write_summary(article, summary, language, summariser.name, truncated,
+                               attempts=attempts, problems=problems)
+    store.mark_done(article, path, language, summariser.name, attempts, problems)
+    log.info("Wrote %s", path)
+    return path
+
+
+def run_replay(config: dict, source_dir: Path, summariser, store: Store) -> list[Path]:
+    """Summarise saved, cleaned inputs (fixtures) instead of fetching the site: no network, and
+    the same input every time, so runs and evaluations can be repeated after articles expire."""
+    files = sorted(Path(source_dir).glob("*.json"))
+    if not files:
+        raise FileNotFoundError(f"no saved inputs (*.json) in {source_dir}")
+    written: list[Path] = []
+    for f in files:
+        article = Article(**json.loads(f.read_text(encoding="utf-8")))
+        if store.is_done(article.slug) or article.names_in_title:
+            continue
+        try:
+            path = process_article(article, config, summariser, store)
+        except requests.ConnectionError as exc:
+            log.error("Model server unreachable (%s); stopping the replay", exc)
+            break
+        if path is not None:
+            written.append(path)
+    store.write_index()
+    log.info("Replayed %d saved inputs from %s", len(files), source_dir)
     return written
 
 
