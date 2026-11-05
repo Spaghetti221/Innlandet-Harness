@@ -42,7 +42,7 @@ hand-made answer key. Three runs on the live page show why both are needed. A ha
 third run found every deadline right, but the responsible body wrong in three of ten summaries and
 one summary in the wrong language; only four of ten were free of unsupported statements. We turned
 the two repeatable errors into code checks. With them in the retry loop, a fourth run passed 8/10 on
-form but only 3/10 on facts: a better score on the checks did not give better facts.
+form but only 3/10 on facts. Quoting the failing sentence in the feedback then fixed every actor error.
 \end{abstract}
 
 \noindent The READMEs explain how to reproduce the runs and the app.\\
@@ -211,7 +211,7 @@ from the article only, no names, and treating the article as data, not instructi
 glossary of sixteen planning terms. On a retry the model also gets its previous answer and the list of
 failed checks. Nothing else is in the context, so calls cannot drift over a long run.
 
-\paragraph{Digital prototype.} Following the lecturer's advice we built Hamar Reader, a phone app
+\paragraph{Digital prototype.} We built Hamar Reader, a phone app
 built with Expo~\citep{expo}, that shows the summaries in English and Norwegian, labels each notice from keywords
 in its Norwegian title, and sets a reminder three days before the deadline. It reads only the exported
 file and calls neither the site nor the model.
@@ -239,7 +239,7 @@ The demonstration is in week 46 or 47 (slot on Canvas). We plan backwards from t
     Date & Who & Milestone (done when) \\
     \midrule
     03.11 & A & Skeleton, three real-model runs, retry loop, Hamar Reader app \\
-    05.11 & both & Hand check of run 3; language and actor checks; no raw HTML; all attempts stored; run 4 \\
+    05.11 & both & Language and actor checks; offline eval on saved inputs; feedback quotes sentence \\
     06.11 & both & \textbf{Compulsory 2 submitted} (retake) \\
     08.11 & B & \textbf{Demo frozen:} test set with answer keys; one command scores Level 1 and 2 \\
     W46--47 & both & \textbf{Live demonstration} with the app; rehearsal the day before \\
