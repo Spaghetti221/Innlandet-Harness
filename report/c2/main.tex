@@ -69,12 +69,12 @@ associations. For every new article the workflow writes one Markdown file with t
 and expiry dates, a link to the original, a 3--6 bullet summary in the chosen language and links to the
 saved source; an export step feeds a phone app.
 
-\paragraph{Fit with the constraints.} The source is public, and its \texttt{robots.txt} \citep{rfc9309}
+\paragraph{Fit with the constraints.} The source is public, and its \texttt{robots.txt}
 allows crawling with a \texttt{Crawl-delay} of 5\,s, a non-standard directive the harness obeys. The
 page author is never read; e-mail addresses, phone numbers and names are replaced before text is
 stored or reaches the model, and the raw HTML is not kept; articles whose title names people are
 rejected. The model runs locally
-\citep{ollama,llama32}, so no article text leaves the machine.
+through Ollama, so no article text leaves the machine.
 
 \section{Definition of success}
 \label{sec:success}
@@ -112,7 +112,7 @@ pipeline right after each model answer.
 who is responsible, what is happening, where, what residents can do, the deadline and the case
 number. A summary passes if every statement about these is supported by the key. Our target for the exam is no unsupported statement about the
 deadline or the responsible body, and at most one summary in ten with any other unsupported
-statement. Level 2 is scored by hand today; for the exam we plan an LLM judge \citep{zheng2023} on top,
+statement. Level 2 is scored by hand today; for the exam we plan an LLM judge on top,
 measured against our hand scores, with its prompt and failure modes documented. A run is successful
 only if both levels pass. When we first scored run 3 by hand, it met neither target (below).
 
@@ -212,7 +212,7 @@ glossary of sixteen planning terms. On a retry the model also gets its previous 
 failed checks. Nothing else is in the context, so calls cannot drift over a long run.
 
 \paragraph{Digital prototype.} We built Hamar Reader, a phone app
-built with Expo~\citep{expo}, that shows the summaries in English and Norwegian, labels each notice from keywords
+built with Expo, that shows the summaries in English and Norwegian, labels each notice from keywords
 in its Norwegian title, and sets a reminder three days before the deadline. It reads only the exported
 file and calls neither the site nor the model.
 
@@ -274,11 +274,7 @@ The demonstration is in week 46 or 47 (slot on Canvas). We plan backwards from t
 \end{table}
 
 \begin{thebibliography}{9}\small
-\bibitem[Expo(2026)]{expo} Expo. Expo documentation. \url{https://expo.dev}, accessed 04.11.2026.
-\bibitem[Koster et~al.(2022)]{rfc9309} M.~Koster, G.~Illyes, H.~Zeller, and L.~Sassman. Robots Exclusion Protocol. RFC 9309, IETF, 2022.
 \bibitem[Meta(2024)]{llama32} Meta. Llama 3.2 3B Instruct model card. \url{https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct}, 2024.
-\bibitem[Ollama(2026)]{ollama} Ollama. \url{https://ollama.com}, accessed 04.11.2026.
-\bibitem[Zheng et~al.(2023)]{zheng2023} L.~Zheng et~al. Judging LLM-as-a-judge with MT-Bench and Chatbot Arena. In \emph{NeurIPS Datasets and Benchmarks}, 2023.
 \end{thebibliography}
 
 \newpage
