@@ -65,6 +65,9 @@ The two repeated errors became Level 1 checks 9 and 10.
 Run 4 (05.11, checks 9 and 10 in the retry loop): Level 1 8/10, Level 2 3/10. Retries fixed
 language and format but not the actor in 2/3, and one retry introduced a false statement.
 
+Eval run 2 (05.11, saved inputs, retry feedback quotes the failing sentence): Level 1 9/10,
+Level 2 4/10. All actor errors fixed; remaining errors are mistranslated terms (task 007).
+
 ## Constraints
 
 - Public source only; robots.txt (including `Crawl-delay`) is honoured; no personal data

@@ -35,6 +35,7 @@ Claude Code in the terminal.
 | 04.11 | Flagged by agent | Raw HTML with names and contact boxes stored in `out/html/` | Fixed 05.11: cleaned JSON instead |
 | 05.11 | Corrected | Run 3's wrong body and wrong language were invisible to code | Two new Level 1 checks; rescored runs 5/10, 2/10, 6/10 |
 | 05.11 | Flagged by agent | Run 4: Level 1 up to 8/10, Level 2 down to 3/10; a retry introduced a false statement | Feedback must quote the failing sentence |
+| 05.11 | Flagged by agent | A rerun reported 9/10 but did nothing ("0 new summaries"); the real acceptance run was earlier | Task 005 accepted: 3/3 actor errors fixed |
 
 ---
 
@@ -622,6 +623,37 @@ that only fixes the actor when the sentence is quoted passes after one retry).
 
 Run the eval again with the real model (`--out out/eval2`) and compare with the baseline: the
 acceptance in task 005 is at least 2 of the 3 actor errors fixed.
+
+---
+
+## 2026-11-05 (afternoon) — Acceptance run for task 005
+
+**Tool:** Claude in the Claude app; Ollama with `llama3.2:3b` on the Mac.
+
+### Prompt
+
+Output of `--replay … --out out/eval2` and the check: "Done: 0 new summaries", 9/10.
+
+### What the agent did
+
+1. **Caught that the run did nothing:** "0 new summaries" in 0.002 s. `out/eval2` already held a
+   complete run, started at 13:41 right after task 005 was implemented. The stored attempts show
+   the quoted-sentence feedback, so that earlier run is the real acceptance run. (Lesson: use a new
+   `--out` directory for every run, or the replay skips everything.)
+2. Read the attempts: all three actor errors fixed on the second attempt (acceptance: at least
+   2 of 3). Level 1 9/10, 19 calls, 9.8 s per article offline. New failure: the retries squeezed
+   the action and finance plan into one bullet.
+3. Hand-checked all ten summaries against the sources: **Level 2 4/10**. No wrong actor any more;
+   the remaining errors are mistranslated Norwegian terms (*fjernkjøleanlegg* → "fueling station",
+   *utenforskap* → "being in care", *møblering* → "eviction", *fortau* → "bridge", *åpen kontordag*
+   → "public consultation") and one wrong figure (450 million attributed to the wrong loan).
+4. Archived the run, marked task 005 accepted, added **task 007** (glossary for these terms with a
+   check), and added both eval runs to the report table and a sentence on what task 005 changed.
+
+### Outcome
+
+Quoting the failing sentence works where naming the problem did not. The next errors to attack
+are terms, which a glossary and a check can target.
 
 ---
 

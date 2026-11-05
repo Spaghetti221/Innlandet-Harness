@@ -137,8 +137,10 @@ articles with a non-deterministic model, so these are observations, not measured
     2 & stricter prompt, glossary, names removed before the model & 2/10 & -- & 10 & 9.1 \\
     3 & retry with feedback (at most 3 attempts), deadline check & 6/10 & 4/10 & 17 & 12.3 \\
     4 & language and responsible-body checks in the retry loop (05.11) & 8/10 & 3/10 & 20 & 13.4 \\
+    E1 & offline eval run on the ten saved notices (same code as run 4) & 7/10 & -- & 20 & 11.2\textsuperscript{b} \\
+    E2 & retry feedback quotes the failing sentence (task 005) & 9/10 & 4/10 & 19 & 9.8\textsuperscript{b} \\
     \bottomrule
-    \multicolumn{6}{@{}l}{\textsuperscript{a}\,Includes the prize article, which later runs reject.}
+    \multicolumn{6}{@{}l}{\textsuperscript{a}\,Includes the prize article, which later runs reject. \textsuperscript{b}\,Offline, no 5\,s pause.}
   \end{tabular}
 \end{table}
 
@@ -155,7 +157,11 @@ body elsewhere but kept the wrong first sentence through all three attempts: the
 problem, not the sentence. The hand check fell to 3/10. Every deadline was right, but new errors
 appeared (\emph{startlån}, a housing loan, became ``start-up loans for new businesses''), and the stored
 attempts show one error that a retry introduced: ``the council meeting can be attended'' appears only
-in the second attempt. Raising the Level 1 score did not make the facts better.
+in the second attempt. Raising the Level 1 score did not make the facts better. On the saved notices (E1, E2), feedback that
+quotes the failing sentence and names the right body fixed all three actor errors on the second attempt.
+The remaining Level 2 errors are mistranslated terms (\emph{fjernkjøleanlegg}, district cooling, became a
+``fueling station''; \emph{utenforskap}, social exclusion, ``being in care''), and in one summary the
+retries squeezed every point into a single bullet.
 
 \section{Architecture}
 \label{sec:arch}
