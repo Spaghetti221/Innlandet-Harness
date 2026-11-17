@@ -7,6 +7,7 @@ Everything here is decided by code, without a model:
   one_summary_per_article  state.json and the summary files agree, no duplicates or orphans
   header                   title, dates, link, language and model lines are present
   source_link              the link is the article's own hamar.kommune.no/lokaldemokrati URL
+                           (the listing page for anonymised articles, slug "anon-<hash>")
   dates_match_source       Published / Expires equal the dates in the saved source data
   summary_shape            the summary is non-empty; real runs have 3-6 flat '- ' bullets, none repeated
   no_contact_details       no e-mail addresses or phone numbers in the summary
@@ -15,6 +16,10 @@ Everything here is decided by code, without a model:
   deadline_kept            a date after 'frist', 'innen' or 'senest' in the source is in the summary
   language                 the summary is in the requested language (English/Norwegian only)
   responsible_body         the summary does not say Hamar municipality acts when the source names another body
+  invented_placeholder     no bracketed placeholder of the model's own, such as "[date]" (real runs)
+  untranslated             no lowercase Norwegian glossary term in an English summary (real runs)
+  title_*                  a translated title (task 014) is one line, translated, not much longer than
+                           the original, and passes the name, date, placeholder and glossary checks
 """
 
 import argparse
@@ -25,10 +30,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .config import REPO_ROOT
-from .extract import EMAIL, PHONE, Article, extract_article
-from .fetch import LISTING_URL, is_article_url
-from .names import find_person_names, scrub_person_names
-from .summarise import NO_CONTENT
+from .extract import EMAIL, PHONE, Article, english_placeholders, extract_article, load_saved_article
+from .fetch import ANON_PREFIX, LISTING_URL, is_article_url
+from .names import find_person_names, ner_lang, scrub_person_names
+from .summarise import GLOSSARY_EN, NO_CONTENT
 
 MONTHS = {
     # Norwegian (bokmål/nynorsk) and English month names -> month number.
@@ -173,6 +178,93 @@ def responsible_body_problem(summary: str, source_text: str) -> str | None:
             f"{actors[0]} is the one acting, as the source says.")
 
 
+# --- Placeholders the model invents ------------------------------------------------------------
+# 17.11: the model copied the style of our placeholders and wrote "[date]" where it had no date.
+# Our own markers say "removed" ("fjernet" in runs before 18.11); a Markdown link "[text](url)"
+# is not a placeholder.
+_INVENTED_PLACEHOLDER = re.compile(r"\[(?![^\]]*(?:fjernet|removed))[^\]\n]{1,40}\](?!\()", re.IGNORECASE)
+
+
+def placeholder_problem(summary: str) -> str | None:
+    found = _INVENTED_PLACEHOLDER.findall(summary)
+    if not found:
+        return None
+    return (f"invented_placeholder: the summary contains {', '.join(sorted(set(found)))}. "
+            "Leave out what the article does not say instead of writing a placeholder.")
+
+
+# --- Glossary terms left in Norwegian ----------------------------------------------------------
+# 17.11: "startlån" stayed Norwegian although the glossary gives the English term. Only
+# lowercase occurrences count: capitalised ones are names ("Kommunedelplan for vann og avløp").
+# Names of bodies are allowed in Norwegian, so the responsible-body hint can name them.
+_GLOSSARY_ALLOWED = {"fylkeskommune", "kommunestyret", "formannskapet"}
+
+
+def _glossary_terms() -> dict[str, str]:
+    terms: dict[str, str] = {}
+    for line in GLOSSARY_EN.splitlines():
+        if not line.startswith("- ") or ":" not in line:
+            continue
+        norwegian, english = line[2:].split(":", 1)
+        for term in re.sub(r"\(.*?\)", "", norwegian).split(","):
+            term = term.strip()
+            if term and not term.endswith("-") and term not in _GLOSSARY_ALLOWED:
+                terms[term] = english.strip()
+    return terms
+
+
+GLOSSARY_TERMS = _glossary_terms()
+
+
+def untranslated_problems(summary: str, language: str | None) -> list[str]:
+    if not (language or "").strip().lower().startswith("english"):
+        return []
+    # "public consultation (høring)" is fine: the Norwegian word in brackets helps readers match
+    # the notice. Only a term used in place of the English one counts.
+    outside_brackets = re.sub(r"\([^)]*\)", "", summary)
+    return [f"untranslated: \"{term}\" is Norwegian; write \"{english}\" instead"
+            for term, english in GLOSSARY_TERMS.items()
+            if re.search(rf"(?<![\wæøå-]){re.escape(term)}\w*", outside_brackets)]
+
+
+# --- Translated title (task 014) ---------------------------------------------------------------
+
+def clean_title(raw: str) -> str:
+    """Remove wrapping the model adds around a title (quotes, '#', '- ', 'Title:'). Format only:
+    the words are never changed."""
+    title = raw.strip()
+    title = re.sub(r"^(?:#+\s*|[-*]\s+|(?:translated\s+)?title\s*:\s*)", "", title, flags=re.IGNORECASE)
+    return title.strip().strip("\"'«»“”").strip()
+
+
+def title_problems(title: str, article, language: str | None, is_mock: bool) -> list[str]:
+    """Problems with a translated title, as 'check: detail' strings, like validate_summary."""
+    if not title.strip():
+        return ["title_shape: the title is empty"]
+    if "\n" in title.strip():
+        return ["title_shape: write the title on one line, with nothing else"]
+    problems: list[str] = []
+    names = find_person_names(title, ner_lang(language))
+    if names:
+        problems.append(f"no_personal_names: {len(names)} personal name(s) in the title")
+    if is_mock:
+        return problems
+    original = article.title
+    if title.casefold() == original.casefold():
+        problems.append(f"title_language: the title is still in Norwegian; translate it into {language}")
+    if len(title) > 2 * len(original) + 30:
+        problems.append("title_shape: the title is much longer than the original; translate only the title")
+    source_dates = find_dates(original)
+    for y, m, d in sorted(find_dates(title), key=str):
+        if not date_in_source((y, m, d), source_dates):
+            problems.append(f"no_invented_dates: {d:02d}.{m:02d}.{y or '????'} is not in the original title")
+    for problem in (language_problem(title, language), placeholder_problem(title)):
+        if problem:
+            problems.append(problem)
+    problems += untranslated_problems(title, language)
+    return problems
+
+
 def validate_summary(summary: str, article, is_mock: bool, language: str | None = None) -> list[str]:
     """Problems with one summary, as 'check: detail' strings. Used by the check and by the
     pipeline, which gives the problems back to the model and asks it to try again."""
@@ -193,14 +285,16 @@ def validate_summary(summary: str, article, is_mock: bool, language: str | None 
             problems.append("summary_shape: the same bullet point appears more than once")
     if EMAIL.search(summary) or PHONE.search(summary):
         problems.append("no_contact_details: summary contains an e-mail address or phone number")
-    names = find_person_names(summary)
+    names = find_person_names(summary, ner_lang(language))
     if names:
         # Report how many, never the names themselves: check.json must not hold personal data.
         problems.append(f"no_personal_names: {len(names)} personal name(s) in the summary")
     if not is_mock:
-        for problem in (language_problem(summary, language), responsible_body_problem(summary, article.text)):
+        for problem in (language_problem(summary, language), responsible_body_problem(summary, article.text),
+                        placeholder_problem(summary)):
             if problem:
                 problems.append(problem)
+        problems += untranslated_problems(summary, language)
 
     source_dates = find_dates(article.text)
     summary_dates = find_dates(summary)
@@ -229,7 +323,7 @@ def load_source(slug: str, source_dir: Path, html_dir: Path | None = None) -> Ar
     is still read, so archived runs can be rescored."""
     path = source_dir / f"{slug}.json"
     if path.exists():
-        return Article(**json.loads(path.read_text(encoding="utf-8")))
+        return load_saved_article(json.loads(path.read_text(encoding="utf-8")))
     if html_dir is not None and (html_dir / f"{slug}.html").exists():
         return extract_article((html_dir / f"{slug}.html").read_text(encoding="utf-8"), LISTING_URL + slug)
     return None
@@ -251,7 +345,11 @@ def check_article(slug: str, rec: dict, summaries_dir: Path, source_dir: Path,
         r.fail("header", "missing '# title' line")
 
     url = fields.get("Original article", "").strip("<>")
-    if url != LISTING_URL + slug or not is_article_url(url):
+    if slug.startswith(ANON_PREFIX):
+        # The article's own URL holds a person's name; anonymised summaries link to the listing.
+        if url != LISTING_URL:
+            r.fail("source_link", f"link {url!r} is not {LISTING_URL} (anonymised article)")
+    elif url != LISTING_URL + slug or not is_article_url(url):
         r.fail("source_link", f"link {url!r} is not {LISTING_URL + slug}")
 
     article = load_source(slug, source_dir, html_dir)
@@ -269,6 +367,14 @@ def check_article(slug: str, rec: dict, summaries_dir: Path, source_dir: Path,
     is_mock = fields.get("Model") == "mock"
     if find_person_names(fields["_title"]):
         r.fail("no_personal_names", "the title names a person")
+    if "Original title" in fields and article is not None:
+        # A translated title heads the file; the Norwegian one follows (task 014).
+        if english_placeholders(fields["Original title"]) != article.title:
+            r.fail("header", "Original title does not match the saved source")
+        for problem in title_problems(fields["_title"], article, fields.get("Summary language"), is_mock):
+            check, detail = problem.split(": ", 1)
+            if check != "no_personal_names":  # already reported for the title above
+                r.fail(check, detail)
     if article is None:
         if not summary:
             r.fail("summary_shape", "summary is empty")

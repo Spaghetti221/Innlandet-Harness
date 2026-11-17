@@ -22,9 +22,11 @@ ones a week. The test set therefore grows by saving each new notice (see *Test s
 
 For every new article:
 
-- one Markdown summary in the chosen language: title, publish and expiry dates, a link to the
-  original, 3–6 bullet points, and links to the saved source and extracted text;
-- the cleaned source as JSON (names, e-mail addresses and phone numbers replaced; never the raw HTML);
+- one Markdown summary in the chosen language: title (translated in its own model call when the
+  language is not Norwegian, with the original title below it), publish and expiry dates, a link
+  to the original, 3–6 bullet points, and links to the saved source and extracted text;
+- the cleaned source as JSON (names, e-mail addresses and phone numbers replaced by static English
+  placeholders such as `[name removed]`; never the raw HTML);
 - every model attempt, with the problems the check found;
 - an `INDEX.md` of all summaries, and on request a JSON export for the Hamar Reader app.
 
@@ -38,7 +40,8 @@ Success has two levels. A run is successful only if both pass.
 
 1. Exactly one summary per article in `state.json`; no duplicates, no orphan files.
 2. The header has title, Published, Original article, Summary language and Model.
-3. The link is the article's own `https://www.hamar.kommune.no/lokaldemokrati/<slug>` URL.
+3. The link is the article's own `https://www.hamar.kommune.no/lokaldemokrati/<slug>` URL, or
+   the listing page for an anonymised article (its URL names a person).
 4. Published and Expires equal the dates in the saved source.
 5. The summary has 3–6 flat Markdown bullet points, none repeated (real runs).
 6. No e-mail addresses, phone numbers or personal names in the title or summary.
@@ -46,8 +49,16 @@ Success has two levels. A run is successful only if both pass.
 8. A deadline in the source (a date after "frist", "innen" or "senest") is in the summary.
 9. The summary is in the requested language (English or Norwegian).
 10. The summary does not say Hamar kommune acts when the source names another body as acting.
+11. No bracketed placeholder of the model's own, such as "[date]" (real runs).
+12. An English summary uses the glossary's English term, not the Norwegian one; the Norwegian
+    word in brackets after the English term is allowed (real runs).
+13. A translated title is one line, translated, not much longer than the original, and passes
+    checks 6, 7, 11 and 12; the original title in the header equals the saved source. A title
+    that still fails after three attempts is replaced by the Norwegian title.
 
-The pipeline runs checks 5–10 right after the model answers. A failing summary goes back to
+Before the first attempt, code adds short reminders after the article: the language and the
+flat 3–6 bullet format, and the responsible body when the source names one other than Hamar
+kommune (the same rule as check 10). The pipeline runs checks 5–12 right after the model answers. A failing summary goes back to
 the model with the problems, quoting the failing sentence where there is one, for up to three
 attempts in total; a summary that still fails is marked "read before use".
 
@@ -81,9 +92,16 @@ Results of every run so far are in the report (`report/c2/`, Table 2).
 - Public source only; robots.txt (including `Crawl-delay`) is honoured.
 - No personal data stored on purpose: authors are never read; the raw HTML is not stored;
   e-mails, phone numbers and personal names are replaced before storage and before the model;
-  articles whose title names people are rejected and remembered only as a hash. Names are found
-  by three heuristics (a known first name, a phrase that introduces a person, a following contact
-  detail), which can still miss a name; the name check and the export filter are the second line.
+  an article whose title names people is anonymised: the name is replaced in the title, it is
+  stored under a hashed slug (`anon-<hash>`) and linked to the listing page, since its URL holds
+  the name. Names are found by three heuristics (a known first name, a phrase that introduces a
+  person, a following contact detail) plus a local named-entity model (spaCy, `nb_core_news_md`
+  for sources, `en_core_web_sm` for English summaries). Real runs stop if the model is missing.
+  The model's person spans are filtered: a single word only if it is a known first name, and
+  never lowercase words, numbers, URLs or spans with an organisation word, since it labelled
+  places such as Børstad and Jernbanebrygga as people. Text is scrubbed until a pass finds no
+  new name, because the model labels a name differently once the name beside it is replaced.
+  A name can still be missed; the name check and the export filter are the second line.
 - Saved inputs keep only what the evaluation needs: title, lead, body text and dates.
 - A local model (Llama 3.2 3B via Ollama), so no article text leaves the machine.
 - Summaries are not published anywhere automatically; a person reads them before export.

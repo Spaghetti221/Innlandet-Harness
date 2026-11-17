@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import CONFIG_PATH, REPO_ROOT, interval_for, load_config, set_language
 from .fetch import Fetcher
+from .names import require_ner
 from .pipeline import run_forever, run_once, run_replay
 from .store import Store
 from .summarise import MockSummariser, OllamaSummariser
@@ -47,6 +48,13 @@ def main(argv=None) -> int:
         log.info("Summary language saved: %s", new_language)
         if args.set_language:
             return 0
+
+    if not args.mock:
+        try:
+            require_ner()
+        except RuntimeError as exc:
+            log.error("Stopping before any text reaches the model: %s", exc)
+            return 2
 
     config = load_config(args.config)
     interval = args.interval or interval_for(config, args.profile)

@@ -1,5 +1,6 @@
 """Polite HTTP fetching and discovery of article URLs on the listing pages."""
 
+import hashlib
 import logging
 import re
 import time
@@ -39,6 +40,19 @@ def normalise_url(url: str) -> str:
 
 def slug_of(url: str) -> str:
     return urlsplit(url).path.rstrip("/").rsplit("/", 1)[-1]
+
+
+ANON_PREFIX = "anon-"
+
+
+def digest(slug: str) -> str:
+    """Short hash of a slug, so an article can be remembered without storing its URL."""
+    return hashlib.sha256(slug.encode("utf-8")).hexdigest()[:16]
+
+
+def anonymous_slug(slug: str) -> str:
+    """Stand-in slug for an article whose title (and so its URL) names people."""
+    return ANON_PREFIX + digest(slug)
 
 
 def article_links(html: str, base_url: str = LISTING_URL) -> list[str]:
@@ -95,6 +109,11 @@ class Fetcher:
         if wait > 0:
             time.sleep(wait)
         try:
+            resp = self.session.get(url, timeout=self.timeout)
+        except requests.ConnectionError as exc:
+            # The site reset one connection in the 17.11 live run; try once more, politely.
+            log.info("Connection to %s failed (%s); retrying in %d s", url, exc, delay)
+            time.sleep(delay)
             resp = self.session.get(url, timeout=self.timeout)
         finally:
             self._last_request = time.monotonic()

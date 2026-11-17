@@ -6,7 +6,6 @@ The raw HTML is never stored: it contains names and contact boxes. Only the clea
 check needs.
 """
 
-import hashlib
 import json
 import os
 from dataclasses import asdict
@@ -14,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .extract import Article
+from .fetch import anonymous_slug, digest
 from .summarise import NO_CONTENT
 
 
@@ -43,18 +43,13 @@ class Store:
         tmp.replace(self.state_path)
 
     def is_done(self, slug: str) -> bool:
+        # An article whose title names people is stored under a hashed slug (anonymous_slug).
+        # "rejected" holds hashes from runs before 17.11, when such articles were refused.
         return (slug in self.state["articles"] or slug in self.state.get("skipped", [])
-                or self.digest(slug) in self.state.get("rejected", []))
+                or anonymous_slug(slug) in self.state["articles"]
+                or digest(slug) in self.state.get("rejected", []))
 
-    @staticmethod
-    def digest(slug: str) -> str:
-        """Short hash of a slug, so rejected articles can be remembered without storing their URL."""
-        return hashlib.sha256(slug.encode("utf-8")).hexdigest()[:16]
-
-    def mark_rejected(self, slug: str) -> None:
-        """Remember an article we refuse to process (its title names people). Only a hash is kept."""
-        self.state.setdefault("rejected", []).append(self.digest(slug))
-        self._save_state()
+    digest = staticmethod(digest)
 
     def mark_skipped(self, slug: str) -> None:
         """Remember pages that turned out not to be articles, so they are not refetched."""
@@ -67,14 +62,17 @@ class Store:
         path.write_text(json.dumps(asdict(article), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         return path
 
-    def save_attempt(self, slug: str, attempt: int, summary: str, problems: list[str]) -> Path:
+    def save_attempt(self, slug: str, attempt: int, summary: str, problems: list[str],
+                     kind: str = "summary") -> Path:
         """Every model answer is kept, with the problems the check found, so a retry that makes a
-        summary worse can be seen afterwards."""
+        summary worse can be seen afterwards. Title attempts (task 014) go to title-attempt-N.md."""
         folder = self.attempts_dir / slug
         folder.mkdir(parents=True, exist_ok=True)
-        path = folder / f"attempt-{attempt}.md"
+        prefix = "title-attempt" if kind == "title" else "attempt"
+        path = folder / f"{prefix}-{attempt}.md"
         found = "\n".join(f"- {p}" for p in problems) or "- none (passed)"
-        path.write_text(f"# Attempt {attempt}\n\n## Problems found\n\n{found}\n\n## Model answer\n\n"
+        heading = f"Title attempt {attempt}" if kind == "title" else f"Attempt {attempt}"
+        path.write_text(f"# {heading}\n\n## Problems found\n\n{found}\n\n## Model answer\n\n"
                         f"{summary.strip()}\n", encoding="utf-8")
         return path
 
@@ -84,17 +82,19 @@ class Store:
         return path
 
     def write_summary(self, article: Article, summary: str, language: str, model: str,
-                      truncated: bool, attempts: int = 1, problems: list[str] | None = None) -> Path:
+                      truncated: bool, attempts: int = 1, problems: list[str] | None = None,
+                      title_translated: str | None = None) -> Path:
+        # The file name keeps the slug: the check, state.json and the export use it as the key.
         date = article.published[:10] or datetime.now().strftime("%Y-%m-%d")
         path = self.summaries_dir / f"{date}_{article.slug}.md"
         if summary.strip() == NO_CONTENT:
             summary = "_The model found no article content to summarise._"
 
-        lines = [
-            f"# {article.title}",
-            "",
-            f"- **Published:** {article.published[:10] or 'unknown'}",
-        ]
+        lines = [f"# {title_translated or article.title}", ""]
+        if title_translated:
+            # Readers match the summary with the Norwegian page by its original title.
+            lines.append(f"- **Original title:** {article.title}")
+        lines.append(f"- **Published:** {article.published[:10] or 'unknown'}")
         if article.expires:
             lines.append(f"- **Expires / deadline:** {article.expires[:10]}")
         lines += [
@@ -115,10 +115,12 @@ class Store:
         return path
 
     def mark_done(self, article: Article, summary_path: Path, language: str, model: str,
-                  attempts: int = 1, problems: list[str] | None = None) -> None:
+                  attempts: int = 1, problems: list[str] | None = None,
+                  title_translated: str | None = None) -> None:
         self.state["articles"][article.slug] = {
             "url": article.url,
             "title": article.title,
+            "title_translated": title_translated,
             "published": article.published[:10],
             "summary_file": summary_path.name,
             "language": language,
@@ -140,7 +142,7 @@ class Store:
             "|---|---|---|---|---|",
         ]
         for _slug, rec in rows:
-            title = rec["title"].replace("|", "\\|")
+            title = (rec.get("title_translated") or rec["title"]).replace("|", "\\|")
             lines.append(f"| {rec['published']} | {title} | [summary]({rec['summary_file']}) "
                          f"| [hamar.kommune.no]({rec['url']}) | {rec['language']} |")
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")

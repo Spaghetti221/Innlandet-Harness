@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, SectionList, StyleSheet, Text, View, useColorScheme } from 'react-native';
 
 import { KindBadge } from '@/components/kind-badge';
-import { KINDS, daysLeft, formatDate, hasOpenDeadline, notices, summaryFor, type Kind, type Notice } from '@/data';
+import { KINDS, daysLeft, formatDate, hasOpenDeadline, notices, summaryFor, titleFor, type Kind, type Notice } from '@/data';
 import { useLanguage } from '@/i18n';
 import { colors } from '@/theme';
 
@@ -25,6 +25,7 @@ export default function HomeScreen() {
       const bullets = summaryFor(n, lang).summary?.bullets ?? [];
       return (
         n.title.toLowerCase().includes(q) ||
+        titleFor(n, lang).toLowerCase().includes(q) ||
         t.kinds[n.kind].toLowerCase().includes(q) ||
         bullets.some((b) => [b.text, ...b.children].some((s) => s.toLowerCase().includes(q)))
       );
@@ -108,7 +109,7 @@ function Row({ notice }: { notice: Notice }) {
                 )}
               </View>
               <Text style={styles.title} numberOfLines={3}>
-                {notice.title}
+                {titleFor(notice, lang)}
               </Text>
               {summary?.bullets[0] && (
                 <Text style={styles.preview} numberOfLines={2}>

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View, useColorScheme } from 'react-native';
 
 import { KindBadge } from '@/components/kind-badge';
-import { daysLeft, formatDate, getNotice, hasOpenDeadline, summaryFor, type Notice } from '@/data';
+import { daysLeft, formatDate, getNotice, hasOpenDeadline, summaryFor, titleFor, type Notice } from '@/data';
 import { useLanguage } from '@/i18n';
 import { cancelReminder, hasReminder, reminderDate, scheduleReminder } from '@/reminders';
 import { colors } from '@/theme';
@@ -31,8 +31,13 @@ export default function NoticeScreen() {
       <View style={{ gap: 10 }}>
         <KindBadge kind={notice.kind} />
         <Text style={styles.heading} selectable>
-          {notice.title}
+          {titleFor(notice, lang)}
         </Text>
+        {titleFor(notice, lang) !== notice.title && (
+          <Text style={styles.subtle} selectable>
+            {notice.title}
+          </Text>
+        )}
         <Text style={styles.subtle}>
           {t.published} {formatDate(notice.published, locale)}
         </Text>
@@ -80,7 +85,7 @@ export default function NoticeScreen() {
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.secondaryButton, pressed && { opacity: 0.7 }]}
-          onPress={() => Share.share({ message: `${notice.title}\n${notice.url}` })}
+          onPress={() => Share.share({ message: `${titleFor(notice, lang)}\n${notice.url}` })}
         >
           <Text style={styles.secondaryButtonText}>{t.share}</Text>
         </Pressable>
@@ -96,7 +101,7 @@ export default function NoticeScreen() {
 }
 
 function DeadlineCard({ notice }: { notice: Notice }) {
-  const { t, locale } = useLanguage();
+  const { t, lang, locale } = useLanguage();
   const deadline = notice.deadline!;
   const open = hasOpenDeadline(notice);
   const left = daysLeft(deadline);
@@ -118,7 +123,7 @@ function DeadlineCard({ notice }: { notice: Notice }) {
     const ok = await scheduleReminder(
       notice,
       t.reminderTitle,
-      t.reminderBody(notice.title, formatDate(deadline, locale)),
+      t.reminderBody(titleFor(notice, lang), formatDate(deadline, locale)),
     );
     setBlocked(!ok);
     setReminder(ok);

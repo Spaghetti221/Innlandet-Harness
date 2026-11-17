@@ -1,3 +1,8 @@
 requests>=2.32
 beautifulsoup4>=4.12
 pytest>=8
+coverage>=7
+# Named-entity layer for name removal (harness/hamar_news/names.py); required for real runs.
+spacy>=3.8,<3.9
+nb_core_news_md @ https://github.com/explosion/spacy-models/releases/download/nb_core_news_md-3.8.0/nb_core_news_md-3.8.0-py3-none-any.whl
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
