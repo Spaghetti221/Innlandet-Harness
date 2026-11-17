@@ -55,6 +55,7 @@ def main(argv=None) -> int:
     log.info("Mode: %s | profile: %s | language: %s",
              "mock" if args.mock else f"ollama {config['model']}", args.profile, config["language"])
 
+    print(f"Article fetch requests are delayed by {config['request_delay_seconds']} seconds to adhere to hamar.kommune.no's robots.txt rules.")
     fetcher = Fetcher(delay_seconds=config["request_delay_seconds"])
     store = Store(args.out, mock=args.mock)
     try:
