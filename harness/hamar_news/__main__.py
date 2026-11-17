@@ -1,4 +1,4 @@
-"""CLI: python -m harness.hamar_news [--once] [--mock] [--replay DIR] [--profile test|prod] [--language X]"""
+"""CLI: python -m harness.hamar_news [--once] [--mock | --mock-bad] [--replay DIR] [--profile test|prod] [--language X]"""
 
 import argparse
 import logging
@@ -10,7 +10,7 @@ from .fetch import Fetcher
 from .names import require_ner
 from .pipeline import run_forever, run_once, run_replay
 from .store import Store
-from .summarise import MockSummariser, OllamaSummariser
+from .summarise import MockBadSummariser, MockSummariser, OllamaSummariser
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -20,6 +20,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     p.add_argument("--once", action="store_true", help="run a single pass and exit")
     p.add_argument("--mock", action="store_true", help="use a fake summariser instead of Ollama")
+    p.add_argument("--mock-bad", action="store_true",
+                   help="use a fake summariser that always fails the checks (tests withholding); "
+                        "uses mock storage like --mock")
     p.add_argument("--replay", type=Path, metavar="DIR",
                    help="summarise saved inputs from DIR (e.g. fixtures/hamar_news/live-2026-11-05) "
                         "instead of fetching the site; runs once")
@@ -58,14 +61,19 @@ def main(argv=None) -> int:
 
     config = load_config(args.config)
     interval = args.interval or interval_for(config, args.profile)
-    summariser = (MockSummariser() if args.mock
-                  else OllamaSummariser(config["ollama_url"], config["model"], config["num_ctx"]))
+    if args.mock_bad:
+        summariser = MockBadSummariser()
+    elif args.mock:
+        summariser = MockSummariser()
+    else:
+        summariser = OllamaSummariser(config["ollama_url"], config["model"], config["num_ctx"])
+    mock = args.mock or args.mock_bad
     log.info("Mode: %s | profile: %s | language: %s",
-             "mock" if args.mock else f"ollama {config['model']}", args.profile, config["language"])
+             summariser.name if mock else f"ollama {config['model']}", args.profile, config["language"])
 
     print(f"Article fetch requests are delayed by {config['request_delay_seconds']} seconds to adhere to hamar.kommune.no's robots.txt rules.")
     fetcher = Fetcher(delay_seconds=config["request_delay_seconds"])
-    store = Store(args.out, mock=args.mock)
+    store = Store(args.out, mock=mock)
     try:
         if args.replay:
             written = run_replay(config, args.replay, summariser, store)

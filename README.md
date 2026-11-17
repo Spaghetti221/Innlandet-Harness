@@ -124,6 +124,7 @@ If Ollama runs elsewhere, set `OLLAMA_URL` in `.env` (see `.env.example`).
 |---|---|
 | `python -m harness.hamar_news --once --mock` | One pass, fake summaries (no model needed) |
 | `python -m harness.hamar_news --profile test --mock` | Test loop: checks every 30 s, fake summaries |
+| `python -m harness.hamar_news --replay fixtures/hamar_news/live-2026-11-05 --mock-bad --out out/bad` | Fake summaries that always fail the checks, to see them withheld |
 | `python -m harness.hamar_news --profile test` | Test loop against real Ollama |
 | `python -m harness.hamar_news` | **Real run:** checks every 6 h, real Ollama |
 | `python -m harness.hamar_news --interval 120 --mock` | Any interval in seconds |
@@ -217,7 +218,9 @@ names and should be deleted when no longer needed.
 The same checks run inside the pipeline right after the model answers. If a summary breaks
 a rule, the model gets its previous answer and the list of problems and tries again, up to
 `max_attempts` (default 3) in total. Each summary file records the number of attempts, and
-a summary that still fails is marked "read before use". Every attempt is kept in
+a summary that still fails is withheld: the file keeps the title, dates and link, says
+"No summary: ... Read the original article." and shows no bullets, and the export gives
+`"withheld": true` with no bullets. Every attempt is kept in
 `attempts/<slug>/`, so a retry that makes a summary worse can be seen. Retries cost extra model calls: at
 most `max_attempts` per article. Results also go to `check.json`.
 

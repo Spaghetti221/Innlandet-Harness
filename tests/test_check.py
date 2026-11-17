@@ -28,6 +28,16 @@ def _run(tmp_path: Path, summariser, mock: bool) -> Path:
     return tmp_path
 
 
+def _shown(tmp_path: Path, text: str) -> Path:
+    """A run whose summary file shows `text`. The pipeline withholds a failing summary (task 010),
+    so a passing one is written and its Summary section replaced, as in runs from before 010."""
+    _run(tmp_path, FixedSummariser(GOOD), mock=False)
+    path = tmp_path / "summaries" / SUMMARY
+    head, _, _ = path.read_text(encoding="utf-8").partition("## Summary")
+    path.write_text(head + "## Summary\n\n" + text + "\n", encoding="utf-8")
+    return tmp_path
+
+
 def _failures(tmp_path: Path, mock: bool = False) -> list[str]:
     results, problems = check_run(tmp_path, mock)
     return [f for r in results for f in r.failures] + problems
@@ -56,18 +66,18 @@ def test_good_real_summary_passes(tmp_path):
 
 
 def test_invented_date_fails(tmp_path):
-    _run(tmp_path, FixedSummariser(GOOD.replace("30. november", "15. desember")), mock=False)
+    _shown(tmp_path, GOOD.replace("30. november", "15. desember"))
     assert any(f.startswith("no_invented_dates") for f in _failures(tmp_path))
     assert main(["--out", str(tmp_path)]) == 1
 
 
 def test_contact_details_fail(tmp_path):
-    _run(tmp_path, FixedSummariser(GOOD + "\n- Mail postmottak@example.org"), mock=False)
+    _shown(tmp_path, GOOD + "\n- Mail postmottak@example.org")
     assert any(f.startswith("no_contact_details") for f in _failures(tmp_path))
 
 
 def test_too_few_bullets_fail(tmp_path):
-    _run(tmp_path, FixedSummariser("- Only one bullet."), mock=False)
+    _shown(tmp_path, "- Only one bullet.")
     assert any(f.startswith("summary_shape") for f in _failures(tmp_path))
 
 
@@ -87,17 +97,17 @@ def test_empty_run_fails(tmp_path):
 
 
 def test_sub_points_fail(tmp_path):
-    _run(tmp_path, FixedSummariser(GOOD + "\n  - an indented sub-point"), mock=False)
+    _shown(tmp_path, GOOD + "\n  - an indented sub-point")
     assert any(f.startswith("summary_shape") for f in _failures(tmp_path))
 
 
 def test_repeated_bullet_fails(tmp_path):
-    _run(tmp_path, FixedSummariser(GOOD + "\n- It concerns planID 0403-9999."), mock=False)
+    _shown(tmp_path, GOOD + "\n- It concerns planID 0403-9999.")
     assert any("more than once" in f for f in _failures(tmp_path))
 
 
 def test_person_name_in_summary_fails_without_leaking_it(tmp_path):
-    _run(tmp_path, FixedSummariser(GOOD + "\n- Contact person is Kari Nordmann."), mock=False)
+    _shown(tmp_path, GOOD + "\n- Contact person is Kari Nordmann.")
     failures = _failures(tmp_path)
     assert any(f.startswith("no_personal_names") for f in failures)
     assert not any("Kari" in f for f in failures)
@@ -105,7 +115,7 @@ def test_person_name_in_summary_fails_without_leaking_it(tmp_path):
 
 def test_missing_deadline_fails(tmp_path):
     no_deadline = "\n".join(GOOD.splitlines()[:2] + ["- Comments can be sent by post."])
-    _run(tmp_path, FixedSummariser(no_deadline), mock=False)
+    _shown(tmp_path, no_deadline)
     failures = _failures(tmp_path)
     assert any(f.startswith("deadline_kept") and "30.11" in f for f in failures)
 
@@ -133,12 +143,13 @@ def test_retry_with_feedback_repairs_summary(tmp_path):
     assert _failures(tmp_path) == []
 
 
-def test_retries_stop_and_failure_is_flagged(tmp_path):
+def test_retries_stop_and_failure_is_withheld(tmp_path):
     model = FixedSummariser("- Only one bullet.")
     _run(tmp_path, model, mock=False)
     md = (tmp_path / "summaries" / SUMMARY).read_text(encoding="utf-8")
-    assert "**Attempts:** 3" in md and "still failing after 3" in md
-    assert any(f.startswith("summary_shape") for f in _failures(tmp_path))
+    assert "**Attempts:** 3" in md and "withheld after 3 attempt(s)" in md
+    assert "Only one bullet" not in md  # withheld (task 010): kept only in attempts/
+    assert _failures(tmp_path) == ["withheld: no summary; withheld after 3 attempt(s)"]
 
 
 # --- Added 05.11 after the full fact check of run 3 ---------------------------------------
@@ -282,3 +293,24 @@ def test_no_content_summary_passes_and_language_none_is_not_checked():
     assert validate_summary("NO_CONTENT", article, is_mock=False) == []
     assert validate_summary("  ", article, is_mock=False) == ["summary_shape: summary is empty"]
     assert language_problem("Dette er en norsk tekst og den er lang.", None) is None
+
+
+BAD = GOOD.replace("30. november", "15. desember")  # an invented date: fails on every attempt
+
+
+def test_withheld_summary_reports_one_withheld_failure(tmp_path):
+    _run(tmp_path, FixedSummariser(BAD), mock=False)
+    md = (tmp_path / "summaries" / SUMMARY).read_text(encoding="utf-8")
+    assert "- **Check:** withheld after 3 attempt(s)" in md
+    assert _failures(tmp_path) == ["withheld: no summary; withheld after 3 attempt(s)"]
+
+
+def test_withheld_header_with_bullets_is_still_fully_checked(tmp_path):
+    # A file that says "withheld" but still shows bullet points must not skip the checks.
+    _run(tmp_path, FixedSummariser(BAD), mock=False)
+    path = tmp_path / "summaries" / SUMMARY
+    head, _, _ = path.read_text(encoding="utf-8").partition("## Summary")
+    path.write_text(head + "## Summary\n\n" + BAD + "\n", encoding="utf-8")
+    failures = _failures(tmp_path)
+    assert not any(f.startswith("withheld") for f in failures)
+    assert any(f.startswith("no_invented_dates") for f in failures)
