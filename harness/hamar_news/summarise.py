@@ -35,7 +35,7 @@ def needs_title_translation(language: str) -> bool:
 
 def title_messages(title: str, language: str, previous: str | None = None,
                    problems: list[str] | None = None) -> list[dict]:
-    """A separate, short conversation for the title (task 009): its own check and retries, so a
+    """A separate, short conversation for the title (task 014): its own check and retries, so a
     bad title never forces the summary to be rewritten, and the other way round."""
     system = TITLE_PROMPT.format(language=language)
     if language.strip().lower().startswith("english"):

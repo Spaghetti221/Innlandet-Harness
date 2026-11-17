@@ -18,7 +18,7 @@ Everything here is decided by code, without a model:
   responsible_body         the summary does not say Hamar municipality acts when the source names another body
   invented_placeholder     no bracketed placeholder of the model's own, such as "[date]" (real runs)
   untranslated             no lowercase Norwegian glossary term in an English summary (real runs)
-  title_*                  a translated title (task 009) is one line, translated, not much longer than
+  title_*                  a translated title (task 014) is one line, translated, not much longer than
                            the original, and passes the name, date, placeholder and glossary checks
 """
 
@@ -227,7 +227,7 @@ def untranslated_problems(summary: str, language: str | None) -> list[str]:
             if re.search(rf"(?<![\wæøå-]){re.escape(term)}\w*", outside_brackets)]
 
 
-# --- Translated title (task 009) ---------------------------------------------------------------
+# --- Translated title (task 014) ---------------------------------------------------------------
 
 def clean_title(raw: str) -> str:
     """Remove wrapping the model adds around a title (quotes, '#', '- ', 'Title:'). Format only:
@@ -368,7 +368,7 @@ def check_article(slug: str, rec: dict, summaries_dir: Path, source_dir: Path,
     if find_person_names(fields["_title"]):
         r.fail("no_personal_names", "the title names a person")
     if "Original title" in fields and article is not None:
-        # A translated title heads the file; the Norwegian one follows (task 009).
+        # A translated title heads the file; the Norwegian one follows (task 014).
         if english_placeholders(fields["Original title"]) != article.title:
             r.fail("header", "Original title does not match the saved source")
         for problem in title_problems(fields["_title"], article, fields.get("Summary language"), is_mock):

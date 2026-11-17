@@ -9,7 +9,7 @@ export type Kind = 'hearing' | 'grant' | 'plan' | 'decision' | 'info';
 export type Bullet = { text: string; children: string[] };
 
 export type LanguageSummary = {
-  /** The title in this language (task 009); missing in exports from before 17.11. */
+  /** The title in this language (task 014); missing in exports from before 17.11. */
   title?: string;
   model: string;
   bullets: Bullet[];

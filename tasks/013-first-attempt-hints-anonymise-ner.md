@@ -1,4 +1,4 @@
-# Task 008: First-attempt hints, anonymised articles, named-entity layer
+# Task 013: First-attempt hints, anonymised articles, named-entity layer
 
 > Status: **implemented 17.11, real-model acceptance run pending** (Edvard).
 

@@ -37,7 +37,7 @@ robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out
 | `fixtures/hamar_news/live-2026-11-05/` | Ti ekte, rensede kunngjøringer for offline eval-kjøringer (`--replay`) |
 | `fixtures/hamar_news/*.html`, `fixtures/met_hamar.json` | Syntetiske sider og lagret værvarsel for testene |
 | `tests/` | 114 offline tester (se *Tester*) |
-| `tasks/` | Én fil per oppgave med akseptkriterier (001–009) |
+| `tasks/` | Én fil per oppgave med akseptkriterier (001–014) |
 | `config.json` | Språk, modell, intervaller, forsinkelse, antall forsøk |
 | `out/` | Alle kjøringer (git-ignorert): `summaries/`, `attempts/`, `source/`, `text/`, `state.json`, `check.json`, `run.log`; mock-kjøringer under `out/<kjøring>/mock/` |
 | `app/` | Hamar Reader (Expo/React Native) |
@@ -85,7 +85,7 @@ robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out
 - `build_hints`: påminnelser etter artikkelen (språk, flat liste, ansvarlig organ).
 - `build_messages`: samtalen til modellen; ved nytt forsøk følger forrige svar og problemene med.
 - `truncate`: kutter for lange artikler ved avsnitt eller setning.
-- `needs_title_translation`, `title_messages`: eget, kort kall for tittelen når språket ikke er norsk (task 009).
+- `needs_title_translation`, `title_messages`: eget, kort kall for tittelen når språket ikke er norsk (task 014).
 - `OllamaSummariser.summarise` / `.translate_title`: kaller Ollama lokalt (temperatur 0,2). `MockSummariser`: faste svar uten modell.
 
 ### `check.py`: sjekk uten modell (Nivå 1 i SPEC)

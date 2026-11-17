@@ -95,7 +95,7 @@ def export_runs(run_dirs: list[Path], mock: bool) -> list[dict]:
                 # A name the scrubbing missed reached the summary (run 3, 03.11): never export it.
                 continue
             # The Norwegian title stays on the notice (it decides the kind and matches the
-            # page); each language carries its own title (task 009).
+            # page); each language carries its own title (task 014).
             title = fields.get("Original title") or rec["title"]
             item = items.get(slug)
             if item is None:

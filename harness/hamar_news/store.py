@@ -65,7 +65,7 @@ class Store:
     def save_attempt(self, slug: str, attempt: int, summary: str, problems: list[str],
                      kind: str = "summary") -> Path:
         """Every model answer is kept, with the problems the check found, so a retry that makes a
-        summary worse can be seen afterwards. Title attempts (task 009) go to title-attempt-N.md."""
+        summary worse can be seen afterwards. Title attempts (task 014) go to title-attempt-N.md."""
         folder = self.attempts_dir / slug
         folder.mkdir(parents=True, exist_ok=True)
         prefix = "title-attempt" if kind == "title" else "attempt"

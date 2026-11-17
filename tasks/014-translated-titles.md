@@ -1,4 +1,4 @@
-# Task 009: Translated article titles
+# Task 014: Translated article titles
 
 > Status: **implemented 17.11, real-model acceptance run pending** (Edvard).
 

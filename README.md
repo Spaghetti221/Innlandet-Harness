@@ -58,7 +58,7 @@ days before the deadline (needs a phone, not the browser). More in [app/README.m
 | `SPEC.md` | Problem, users, definition of success |
 | `README.md` | How to reproduce a normal run and an eval run (this file) |
 | `CLAUDE.md` | How the coding agent works in this repo |
-| `tasks/` | One `.md` per task, each with an acceptance check (001–008) |
+| `tasks/` | One `.md` per task, each with an acceptance check (001–014) |
 | `docs/overview.md` | Overview of every module, function, folder and test (Norwegian) |
 | `harness/hamar_news/` | The harness: fetch → extract → summarise → store, plus the output check |
 | `harness/hamar_news/prompts/` | Context files: the system prompt, and an English glossary of planning terms |

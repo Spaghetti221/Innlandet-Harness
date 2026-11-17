@@ -88,7 +88,7 @@ The pipeline works end to end in mock mode. It still needs to be tried with real
 
 ## 2026-11-17 — First-attempt failures, anonymisation, NER, full test coverage and translated titles
 
-**Tool:** Claude Code (Opus 5.5) in the desktop app, plan mode for the first prompt, then execution. One long conversation with five prompts. Tasks 008 and 009.
+**Tool:** Claude Code (Opus 5.5) in the desktop app, plan mode for the first prompt, then execution. One long conversation with five prompts. Tasks 013 and 014 (numbered 008 and 009 until 18.11, when they were renumbered to follow the tasks 008–012 from the C2 feedback plan).
 
 ### Prompt 1
 
@@ -104,7 +104,7 @@ The pipeline works end to end in mock mode. It still needs to be tried with real
 **What the agent did.**
 - Hints after `</article>`: language, flat 3–6 bullets, and the responsible body found by the same rule as the `responsible_body` check. Glossary terms added.
 - Anonymisation: slug `anon-<hash>`, link to the listing page, `[navn fjernet]` in the title. The check accepts the listing link for `anon-` slugs.
-- spaCy NER as a fourth name layer, with fail-closed real runs (`require_ner`). Task 008, SPEC and tests updated.
+- spaCy NER as a fourth name layer, with fail-closed real runs (`require_ner`). Task 013, SPEC and tests updated.
 
 **Corrected or challenged.**
 - The agent installed spaCy before checking that it could run. Windows application control blocked numpy's DLL. The agent asked whether to keep spaCy, and I chose to keep it.
@@ -149,7 +149,7 @@ The pipeline works end to end in mock mode. It still needs to be tried with real
 - It would break our own constraint that no article text leaves the machine.
 - Free tiers of DeepL and Google need an account, and card verification or a billing account. The fully free services have low limits.
 - Only four Norwegian words slipped through in 21 summaries, all in the live run. They went into the glossary, so the `untranslated` check catches them.
-- A local, free alternative (Argos Translate) was offered as a possible task 009. I declined.
+- A local, free alternative (Argos Translate) was offered as a possible new task. I declined.
 
 **Tests.**
 - Coverage showed 12 functions never run by any test: the CLI, the MET probe, the Ollama client, the polling loop and `interval_for`.
@@ -163,7 +163,7 @@ The pipeline works end to end in mock mode. It still needs to be tried with real
 
 > Nei, da lar vi det være. Men noe utlendinger nok ville ha satt pris på, derimot, er om artikkeltitlene også hadde vært oversatt. [...] A. Oversette tittelen for seg selv [...] eller B. Oversette tittelen i samme kall som resten av artikkelen [...]. Implementer det som passer best av de to alternativene. Forresten, pass på å fordele samtalen vår til de rettmessige prompt-loggene.
 
-**Decision: A, the title in its own call** (see `tasks/009-translated-titles.md`).
+**Decision: A, the title in its own call** (see `tasks/014-translated-titles.md`).
 - The title gets its own check and retries, so a bad title never forces the summary to be rewritten.
 - The summary format check stays unchanged.
 - If no title passes, the Norwegian title is kept, so the header is always correct.

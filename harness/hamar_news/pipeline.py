@@ -126,7 +126,7 @@ def summarise_checked(summariser, article, text: str, language: str,
 
 def translate_title_checked(summariser, article, language: str, max_attempts: int,
                             store: Store | None = None) -> str | None:
-    """Translate the title in its own call, check it, and retry with the problems (task 009).
+    """Translate the title in its own call, check it, and retry with the problems (task 014).
     Returns None when no translation is needed or none passed: the Norwegian title is then
     used, which is always correct, rather than a title that failed the check.
     A ConnectionError is passed on, like for the summary."""
