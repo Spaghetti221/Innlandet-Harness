@@ -42,11 +42,9 @@
     "summaries": {
       "en": {
         "model": "sample",
-        "bullets": [
-          {"text": "Sample data: the council adopted an example decision.", "children": []},
-          {"text": "No action is needed from residents.", "children": []}
-        ],
+        "bullets": [],
         "passedCheck": false,
+        "withheld": true,
         "truncated": false
       }
     }
