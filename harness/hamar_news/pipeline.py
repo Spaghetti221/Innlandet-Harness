@@ -8,11 +8,11 @@ from pathlib import Path
 
 import requests
 
-from .check import validate_summary
-from .extract import Article, extract_article
+from .check import clean_title, source_actors, title_problems, validate_summary
+from .extract import Article, extract_article, load_saved_article
 from .fetch import discover_articles, slug_of
 from .store import Store
-from .summarise import truncate
+from .summarise import build_hints, needs_title_translation, truncate
 
 log = logging.getLogger(__name__)
 
@@ -37,10 +37,8 @@ def run_once(config: dict, fetcher, summariser, store: Store) -> list[Path]:
             store.mark_skipped(slug_of(url))
             continue
         if article.names_in_title:
-            # About named people (e.g. a prize to individuals): nothing is stored, not even the URL.
-            log.info("Rejected article %s: its title names people", store.digest(article.slug))
-            store.mark_rejected(article.slug)
-            continue
+            # Names are replaced in title and text, and the slug is hashed (see extract_article).
+            log.info("Anonymised article %s: its title named people", article.slug)
         try:
             path = process_article(article, config, summariser, store)
         except requests.ConnectionError as exc:
@@ -69,9 +67,10 @@ def process_article(article: Article, config: dict, summariser, store: Store) ->
     except Exception as exc:
         log.error("Summarising %s failed: %s; will retry next run", article.url, exc)
         return None
+    title = translate_title_checked(summariser, article, language, config.get("max_attempts", 3), store)
     path = store.write_summary(article, summary, language, summariser.name, truncated,
-                               attempts=attempts, problems=problems)
-    store.mark_done(article, path, language, summariser.name, attempts, problems)
+                               attempts=attempts, problems=problems, title_translated=title)
+    store.mark_done(article, path, language, summariser.name, attempts, problems, title_translated=title)
     log.info("Wrote %s", path)
     return path
 
@@ -84,8 +83,8 @@ def run_replay(config: dict, source_dir: Path, summariser, store: Store) -> list
         raise FileNotFoundError(f"no saved inputs (*.json) in {source_dir}")
     written: list[Path] = []
     for f in files:
-        article = Article(**json.loads(f.read_text(encoding="utf-8")))
-        if store.is_done(article.slug) or article.names_in_title:
+        article = load_saved_article(json.loads(f.read_text(encoding="utf-8")))
+        if store.is_done(article.slug):
             continue
         try:
             path = process_article(article, config, summariser, store)
@@ -105,13 +104,16 @@ def summarise_checked(summariser, article, text: str, language: str,
     to the model and let it try again. Returns the last summary, the number of attempts and
     the problems that remain (empty if the summary passed)."""
     is_mock = summariser.name == "mock"
+    # Same rule as the responsible_body check, so the hint and the check never disagree.
+    hints = build_hints(language, source_actors(article.text))
     previous: str | None = None
     problems: list[str] = []
     for attempt in range(1, max(1, max_attempts) + 1):
         if previous is None:
-            summary = summariser.summarise(text, language)
+            summary = summariser.summarise(text, language, hints=hints)
         else:
-            summary = summariser.summarise(text, language, previous=previous, problems=problems)
+            summary = summariser.summarise(text, language, previous=previous, problems=problems,
+                                           hints=hints)
         problems = validate_summary(summary, article, is_mock, language)
         if store is not None:
             store.save_attempt(article.slug, attempt, summary, problems)
@@ -120,6 +122,38 @@ def summarise_checked(summariser, article, text: str, language: str,
         log.info("Attempt %d for %s failed the check: %s", attempt, article.slug, "; ".join(problems))
         previous = summary
     return summary, attempt, problems
+
+
+def translate_title_checked(summariser, article, language: str, max_attempts: int,
+                            store: Store | None = None) -> str | None:
+    """Translate the title in its own call, check it, and retry with the problems (task 009).
+    Returns None when no translation is needed or none passed: the Norwegian title is then
+    used, which is always correct, rather than a title that failed the check.
+    A ConnectionError is passed on, like for the summary."""
+    translate = getattr(summariser, "translate_title", None)
+    if translate is None or not needs_title_translation(language) or not article.title.strip():
+        return None
+    is_mock = summariser.name == "mock"
+    previous: str | None = None
+    problems: list[str] = []
+    try:
+        for attempt in range(1, max(1, max_attempts) + 1):
+            raw = translate(article.title, language, previous=previous, problems=problems or None)
+            title = clean_title(raw)
+            problems = title_problems(title, article, language, is_mock)
+            if store is not None:
+                store.save_attempt(article.slug, attempt, title, problems, kind="title")
+            if not problems:
+                return title
+            log.info("Title attempt %d for %s failed the check: %s", attempt, article.slug, "; ".join(problems))
+            previous = raw
+    except requests.ConnectionError:
+        raise
+    except Exception as exc:
+        log.warning("Translating the title of %s failed (%s); keeping the Norwegian title", article.slug, exc)
+        return None
+    log.warning("No translated title for %s passed the check; keeping the Norwegian title", article.slug)
+    return None
 
 
 def run_forever(config: dict, fetcher, summariser, store: Store, interval_seconds: int) -> None:

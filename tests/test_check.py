@@ -19,7 +19,7 @@ class FixedSummariser:
     def __init__(self, text: str, name: str = "llama3.2:3b"):
         self.text, self.name = text, name
 
-    def summarise(self, text: str, language: str, previous=None, problems=None) -> str:
+    def summarise(self, text: str, language: str, previous=None, problems=None, hints=None) -> str:
         return self.text
 
 
@@ -118,7 +118,7 @@ class SecondTimeRight:
     def __init__(self):
         self.calls: list[list[str] | None] = []
 
-    def summarise(self, text, language, previous=None, problems=None):
+    def summarise(self, text, language, previous=None, problems=None, hints=None):
         self.calls.append(problems)
         return GOOD if problems else GOOD + "\n  - an indented sub-point"
 
@@ -203,7 +203,7 @@ class ActorFixedWhenQuoted:
     def __init__(self):
         self.feedback: list[str] = []
 
-    def summarise(self, text, language, previous=None, problems=None):
+    def summarise(self, text, language, previous=None, problems=None, hints=None):
         quoted = any('"The Hamar municipality is launching' in p for p in (problems or []))
         self.feedback += problems or []
         first = ("- Eksempelkonsult is starting the planning work for a test plan." if quoted
@@ -221,3 +221,64 @@ def test_quoted_feedback_reaches_the_model(tmp_path):
     run_once(CONFIG, FakeFetcher(pages), model, Store(tmp_path, mock=False))
     assert any("Rewrite that sentence" in p for p in model.feedback)
     assert _failures(tmp_path) == []
+
+
+def test_invented_placeholder_is_caught():
+    from harness.hamar_news.check import placeholder_problem
+    assert "[date]" in placeholder_problem("- The winners will be announced on [date].")
+    for ok in ("- The prize goes to [name removed].", "- Contact [email removed].", "- Contact [e-post fjernet].",
+               "- See [the plan register](https://arealplaner.no)."):
+        assert placeholder_problem(ok) is None
+
+
+def test_untranslated_glossary_term_is_caught_but_brackets_are_allowed():
+    from harness.hamar_news.check import untranslated_problems
+    assert untranslated_problems("- Extending the startlån program.", "English") == [
+        'untranslated: "startlån" is Norwegian; write "housing start loan" instead']
+    for ok in ("- A public consultation (høring) is held.", "- Kommunedelplan for vann og avløp is out.",
+               "- Innlandet fylkeskommune is starting the work."):
+        assert untranslated_problems(ok, "English") == []
+    assert untranslated_problems("- Kommunen sender planen på høring.", "Norwegian") == []
+
+
+# --- run-level problems and header checks -------------------------------------------------------
+
+def test_missing_state_file_is_reported(tmp_path):
+    results, problems = check_run(tmp_path, mock=True)
+    assert results == [] and "no state file" in problems[0]
+    assert main(["--mock", "--out", str(tmp_path)]) == 1
+
+
+def test_orphan_duplicate_and_missing_summaries_are_reported(tmp_path):
+    _run(tmp_path, MockSummariser(), mock=True)
+    summaries = tmp_path / "mock" / "summaries"
+    (summaries / "2026-01-01_orphan.md").write_text("# Orphan\n", encoding="utf-8")
+    (summaries / ("2026-10-21_" + SUMMARY.split("_", 1)[1])).write_text("# Copy\n", encoding="utf-8")
+    failures = _failures(tmp_path, mock=True)
+    assert any("orphan.md is not listed" in f for f in failures)
+    assert any("more than one summary" in f for f in failures)
+    (summaries / SUMMARY).unlink()
+    assert any("listed in state.json but missing" in f for f in _failures(tmp_path, mock=True))
+
+
+def test_broken_header_link_and_dates_are_reported(tmp_path):
+    _run(tmp_path, MockSummariser(), mock=True)
+    path = tmp_path / "mock" / "summaries" / SUMMARY
+    md = path.read_text(encoding="utf-8")
+    md = (md.replace("- **Model:** mock\n", "")
+            .replace(ARTICLE_URL, "https://example.com/x")
+            .replace("- **Published:** 2026-10-20", "- **Published:** 2026-10-21"))
+    path.write_text(md, encoding="utf-8")
+    failures = _failures(tmp_path, mock=True)
+    assert "header: missing 'Model' line" in failures
+    assert any(f.startswith("source_link:") for f in failures)
+    assert any(f.startswith("dates_match_source: Published") for f in failures)
+
+
+def test_no_content_summary_passes_and_language_none_is_not_checked():
+    from harness.hamar_news.check import language_problem, validate_summary
+    from harness.hamar_news.extract import Article
+    article = Article("u", "s", "Tittel", "", "Tekst.", "", "", "")
+    assert validate_summary("NO_CONTENT", article, is_mock=False) == []
+    assert validate_summary("  ", article, is_mock=False) == ["summary_shape: summary is empty"]
+    assert language_problem("Dette er en norsk tekst og den er lang.", None) is None

@@ -85,3 +85,120 @@ Measured on the 16 current articles, the extracted text is 140–510 words (≤ 
 ### Outcome
 
 The pipeline works end to end in mock mode. It still needs to be tried with real Ollama on a machine that has the model. Changes are uncommitted for review.
+
+## 2026-11-17 — First-attempt failures, anonymisation, NER, full test coverage and translated titles
+
+**Tool:** Claude Code (Opus 5.5) in the desktop app, plan mode for the first prompt, then execution. One long conversation with five prompts. Tasks 008 and 009.
+
+### Prompt 1
+
+> Jobbet med klassekamerat og videreutviklet programmet. Det virker, men alle artiklene har feil under oppsummering: *(live run log pasted)* Se om det er mulig å rette opp i feilene, uten innvirkning på integritet og personvern. Artikler med navn i tittelen kan gjerne få navnet erstattet med noe anonymiserende, eller få generert en ny tittel hvor navn er fjernet.
+
+**What the agent found.** The log only looked like a failure. `state.json` showed every summary passed on attempt 2, and `eval/check_summaries.py` gave 9/9. Every "Attempt 1 failed" line came from the retry loop doing its job. It also found a factual error that no check caught: «møblering» translated as "eviction".
+
+**Decisions asked of me (plan mode).**
+- Articles with names in the title: anonymise them and link to the listing page, because the slug (and so the URL) contains the name.
+- I added the lecturer's feedback: "Name removal relies on a list of names and simple patterns."
+- First attempts: prompt hints only, with no code rewriting the model's text.
+
+**What the agent did.**
+- Hints after `</article>`: language, flat 3–6 bullets, and the responsible body found by the same rule as the `responsible_body` check. Glossary terms added.
+- Anonymisation: slug `anon-<hash>`, link to the listing page, `[navn fjernet]` in the title. The check accepts the listing link for `anon-` slugs.
+- spaCy NER as a fourth name layer, with fail-closed real runs (`require_ner`). Task 008, SPEC and tests updated.
+
+**Corrected or challenged.**
+- The agent installed spaCy before checking that it could run. Windows application control blocked numpy's DLL. The agent asked whether to keep spaCy, and I chose to keep it.
+- The agent asked me to write the NER span filter (`accept_ner_span`).
+
+### Prompt 2
+
+> Det er vel flere lag for å fjerne navn allerede, så satte accept_ner_span til False. Jeg slo jo av Smart app-kontroll, virket fremdeles ikke spaCy? Hvordan kan jeg teste programmet på denne maskinen?
+
+**Agent's answer.** spaCy now loaded; only the language models were missing, because the download had failed while the DLL was blocked. The agent challenged `False`: a synthetic name with no list match and no cue phrase went straight through all three other layers. The NER model found it, so the filter had switched off exactly the layer the lecturer asked for.
+
+**Corrected.** The agent's own NER test used an invented name that the model read as an organisation, so the test proved nothing. It was replaced by a realistic synthetic name.
+
+### Prompt 3
+
+> *(test, eval-008 and run-008 output pasted, with accept_ner_span set to True)* Forbedringspotensiale: Ordene «avløp» og «jernbanebrygga» blir feilaktig identifisert som navn, og fjernet. Datoer kan fjernes. Det er ikke bra. Fremdeles noe (feilidentifisert?) feil med punkter/linjer i oppsummeringer. Stedsnavn fra kartdata? Ord som ikke oversettes. 1 manglende artikkel (10/11 hentet).
+
+**What the agent found (case by case, against the stored outputs).**
+- **NER false positives.** They were single words that are places or projects, lowercase words, a URL and a street address. Two of the three "anonymised" live articles were false alarms because of them.
+- **A real leak.** In the one real prize article, the second winner's name (a hyphenated first name) stayed in the saved text. NER labelled it an organisation until the first name beside it was replaced. The hyphen also beat name rule 1. Reproduced from an old raw HTML file still in `out/html/`.
+- **"Removed dates".** These were the model writing its own placeholder "[date]", not dates removed by the name filter.
+- **Bullets.** The check was right: the model wrote "include:" followed by indented sub-points.
+- **Missing article.** The site reset the connection. The article was not marked done, so the next run would fetch it.
+
+**What the agent did.**
+- `accept_ner_span`: a single word is accepted only as a known first name, and never when followed by a number. No lowercase words, numbers, URLs, line breaks or organisation words.
+- Rule 1 now accepts hyphenated first names. New rule 4 catches a name joined by «og» or a comma to a removed name. Scrubbing repeats until a pass finds nothing.
+- New checks `invented_placeholder` and `untranslated` (glossary terms outside brackets), plus prompt rule 9 on placeholders.
+- A concrete one-line example in the format hint. One retry after a reset connection.
+- Fixed two mock-only false positives by keeping paragraphs apart in the mock summariser.
+- Eval-008 rescored from 6/10 to 9/10. The remaining failure was a real untranslated word.
+
+**Place names from map data.** Not adopted yet. Many Norwegian surnames are farm names, so a place list must only reject a span that is entirely a place name. The single-word rule already covers every case seen so far.
+
+**Not done.** The agent asked before deleting the outputs that hold real names (`out/run-008/` for the prize article, legacy `out/html/` and `out/text/`). Still open.
+
+### Prompt 4
+
+> *(eval-008b: 10/10; live run-008b pasted)* Dette er bedre. Men modellen hopper fortsatt innimellom over oversettelse av enkelte ord. Kunne det heller vært bedre å bruke en API til en oversettingstjeneste (må isåfall være fullstendig gratis)? Jeg trenger oversikt over programmet så langt – alle nåværende funksjoner og viktige mapper. Så må alle funksjoner testes.
+
+**Translation API: rejected.**
+- It would break our own constraint that no article text leaves the machine.
+- Free tiers of DeepL and Google need an account, and card verification or a billing account. The fully free services have low limits.
+- Only four Norwegian words slipped through in 21 summaries, all in the live run. They went into the glossary, so the `untranslated` check catches them.
+- A local, free alternative (Argos Translate) was offered as a possible task 009. I declined.
+
+**Tests.**
+- Coverage showed 12 functions never run by any test: the CLI, the MET probe, the Ollama client, the polling loop and `interval_for`.
+- Added `tests/test_cli.py`, `tests/test_probe.py`, whole-run check tests, and tests for the `.env` loader and robots.txt.
+- Result: 96 tests, coverage of `harness/` 97 %.
+- A new test found a real bug: the NER error handler raised `KeyError` itself.
+
+**Overview.** Written in Norwegian as `docs/overview.md`: data flow, folders, every module and function, tests and commands.
+
+### Prompt 5
+
+> Nei, da lar vi det være. Men noe utlendinger nok ville ha satt pris på, derimot, er om artikkeltitlene også hadde vært oversatt. [...] A. Oversette tittelen for seg selv [...] eller B. Oversette tittelen i samme kall som resten av artikkelen [...]. Implementer det som passer best av de to alternativene. Forresten, pass på å fordele samtalen vår til de rettmessige prompt-loggene.
+
+**Decision: A, the title in its own call** (see `tasks/009-translated-titles.md`).
+- The title gets its own check and retries, so a bad title never forces the summary to be rewritten.
+- The summary format check stays unchanged.
+- If no title passes, the Norwegian title is kept, so the header is always correct.
+- The file name keeps the slug, against the A option's suggestion, because the check, `state.json` and the export use it as the key.
+
+**What the agent did.**
+- Title prompt and `title_problems`: one line, translated, length, names, dates, placeholders, glossary.
+- `translate_title_checked`. The header now shows the translated title and an `Original title:` line, and SPEC check 13 verifies them.
+- Export of a title per language; the app uses `titleFor()` in the list, the detail view, sharing and reminders.
+- `tests/test_title.py`: 114 tests in total. The TypeScript changes are not type-checked (no `node_modules` on this machine).
+
+**Corrected.** While checking a mock run, the agent noticed `config.json` said German and restored it to English to compare. It then saw the change was newer than its own work, so probably mine, and put German back.
+
+**Logs.** This session is described here. Each prompt has a one-line row in `prompt-log.md`.
+
+## 2026-11-18 — Placeholders in static English
+
+**Tool:** Claude Code (Opus 5.5), same conversation as 17.11.
+
+### Prompt
+
+> Yes, I tested German. The new program version mostly works, but still some translation issues here and there. However, the [navn fjernet] and [e-post fjernet] messages should either be static in English, or translated to the current language. I think static English should suffice for now.
+
+### What the agent did
+
+- **New placeholders.** `[name removed]`, `[email removed]` and `[phone removed]` are defined once, in `names.PLACEHOLDER` and in `extract.py`. Name rule 4 and the `invented_placeholder` check follow automatically. The check still accepts "fjernet", so older runs are not flagged.
+- **Saved inputs.** The ten saved inputs in `fixtures/hamar_news/live-2026-11-05/` were migrated so they match what extraction produces now. The word diff shows only placeholder swaps.
+- **Older runs.** `english_placeholders` and `load_saved_article` convert the Norwegian placeholders when saved articles are loaded, both for replay and for the check. Runs from before 18.11 can still be rescored; eval-008b passes.
+- **Prompts.** Rule 9 of the summary prompt and rule 4 of the title prompt name the English placeholders. The title prompt now says to keep them exactly as written, rather than translate them.
+
+### Verification
+
+- 115 tests pass, including a new test for the conversion.
+- A mock replay contains only English placeholders and passes the check.
+
+### Not done
+
+The remaining translation issues were not described in detail. The `untranslated` check only knows glossary words, so new words have to be added to `glossary_en.md` as they are found.

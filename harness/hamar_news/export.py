@@ -87,13 +87,16 @@ def export_runs(run_dirs: list[Path], mock: bool) -> list[dict]:
         articles = json.loads(state_path.read_text(encoding="utf-8")).get("articles", {})
         for slug, rec in articles.items():
             path = root / "summaries" / rec["summary_file"]
-            if not path.exists() or has_person_name(rec["title"]):
+            translated = rec.get("title_translated")
+            if not path.exists() or has_person_name(rec["title"]) or (translated and has_person_name(translated)):
                 continue
             fields, summary = parse_summary_file(path.read_text(encoding="utf-8"))
             if has_person_name(summary):
                 # A name the scrubbing missed reached the summary (run 3, 03.11): never export it.
                 continue
-            title = fields.get("_title") or rec["title"]
+            # The Norwegian title stays on the notice (it decides the kind and matches the
+            # page); each language carries its own title (task 009).
+            title = fields.get("Original title") or rec["title"]
             item = items.get(slug)
             if item is None:
                 text_path = run_dir / "text" / f"{slug}.txt"
@@ -109,6 +112,7 @@ def export_runs(run_dirs: list[Path], mock: bool) -> list[dict]:
                     "summaries": {},
                 }
             item["summaries"][language_code(rec["language"])] = {
+                "title": translated or title,
                 "model": rec["model"],
                 "bullets": parse_bullets(summary),
                 "passedCheck": rec.get("passed_check", True),

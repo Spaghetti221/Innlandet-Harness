@@ -9,8 +9,8 @@ from dataclasses import dataclass
 
 from bs4 import BeautifulSoup, Tag
 
-from .fetch import slug_of
-from .names import has_person_name, scrub_person_names
+from .fetch import LISTING_URL, anonymous_slug, slug_of
+from .names import PLACEHOLDER as NAME_PLACEHOLDER, has_person_name, scrub_person_names
 
 BLOCK_TAGS = ["p", "div", "li", "tr", "table", "ul", "ol", "section",
               "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "figcaption"]
@@ -30,7 +30,7 @@ class Article:
     published: str  # ISO timestamp or ""
     modified: str
     expires: str
-    names_in_title: bool = False  # the article is about named people; the pipeline rejects it
+    names_in_title: bool = False  # title named people: slug is hashed, url is the listing page
 
     @property
     def text(self) -> str:
@@ -62,9 +62,32 @@ def element_text(el: Tag) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
+# Placeholders are static English (18.11): readers of an English, German or other summary should
+# understand them, and the model should not have to translate them.
+EMAIL_PLACEHOLDER = "[email removed]"
+PHONE_PLACEHOLDER = "[phone removed]"
+# Runs and saved inputs from before 18.11 used Norwegian placeholders.
+LEGACY_PLACEHOLDERS = {"[navn fjernet]": NAME_PLACEHOLDER, "[e-post fjernet]": EMAIL_PLACEHOLDER,
+                       "[telefon fjernet]": PHONE_PLACEHOLDER}
+
+
 def scrub_contact_details(text: str) -> str:
-    text = EMAIL.sub("[e-post fjernet]", text)
-    return PHONE.sub("[telefon fjernet]", text)
+    text = EMAIL.sub(EMAIL_PLACEHOLDER, text)
+    return PHONE.sub(PHONE_PLACEHOLDER, text)
+
+
+def english_placeholders(text: str) -> str:
+    """Replace the Norwegian placeholders of older runs with the current English ones."""
+    for old, new in LEGACY_PLACEHOLDERS.items():
+        text = text.replace(old, new)
+    return text
+
+
+def load_saved_article(data: dict) -> "Article":
+    """An Article from saved JSON (fixtures, out/source), with today's placeholders."""
+    for key in ("title", "lead", "body"):
+        data[key] = english_placeholders(data.get(key, ""))
+    return Article(**data)
 
 
 def scrub_personal_data(text: str) -> str:
@@ -84,14 +107,21 @@ def extract_article(html: str, url: str) -> Article | None:
     lead = element_text(lead_el) if lead_el else ""
     body = "\n\n".join(element_text(el) for el in root.select('[itemprop="articleBody"]'))
 
+    names_in_title = has_person_name(title)
+    slug = slug_of(url)
+    if names_in_title:
+        # The slug is made from the title, so it holds the name too: store under a hash and
+        # link to the listing page instead of the article's own URL.
+        url, slug = LISTING_URL, anonymous_slug(slug)
+
     return Article(
         url=url,
-        slug=slug_of(url),
+        slug=slug,
         title=scrub_personal_data(title),
         lead=scrub_personal_data(lead),
         body=scrub_personal_data(body),
         published=_meta(soup, "og:article:published_time"),
         modified=_meta(soup, "og:article:modified_time"),
         expires=_meta(soup, "og:article:expiration_time"),
-        names_in_title=has_person_name(title),
+        names_in_title=names_in_title,
     )

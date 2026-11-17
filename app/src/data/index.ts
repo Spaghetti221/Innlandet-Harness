@@ -9,6 +9,8 @@ export type Kind = 'hearing' | 'grant' | 'plan' | 'decision' | 'info';
 export type Bullet = { text: string; children: string[] };
 
 export type LanguageSummary = {
+  /** The title in this language (task 009); missing in exports from before 17.11. */
+  title?: string;
   model: string;
   bullets: Bullet[];
   passedCheck: boolean;
@@ -39,6 +41,11 @@ export function summaryFor(n: Notice, lang: Lang): { summary?: LanguageSummary; 
   const own = n.summaries[lang];
   if (own) return { summary: own, fallback: false };
   return { summary: n.summaries[lang === 'en' ? 'no' : 'en'], fallback: true };
+}
+
+/** The title in the chosen language, or the Norwegian title when there is no translation. */
+export function titleFor(n: Notice, lang: Lang): string {
+  return n.summaries[lang]?.title ?? n.title;
 }
 
 export function today(): string {

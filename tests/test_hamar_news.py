@@ -152,7 +152,7 @@ def test_failed_summary_is_retried(tmp_path):
     class Broken:
         name = "broken"
 
-        def summarise(self, text, language):
+        def summarise(self, text, language, **kwargs):
             raise RuntimeError("model error")
 
     config = {"language": "English", "max_listing_pages": 1, "max_input_tokens": 6000}

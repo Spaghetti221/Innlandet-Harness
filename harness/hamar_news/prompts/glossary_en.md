@@ -15,3 +15,16 @@ Use these English terms for Norwegian planning words:
 - innspill, merknad: comments
 - frist: deadline
 - saksnummer: case number
+- utleier: landlord
+- leietaker: tenant
+- møblering: furnishing
+- bosetting (av flyktninger): settlement
+- fjernkjøleanlegg: district cooling plant
+- utenforskap: social exclusion
+- fortau: pavement
+- åpen kontordag: open office day
+- startlån: housing start loan
+- sentrumsplan: city centre plan
+- bestemmelse: provision
+- kulturmiljø: cultural heritage environment
+- sørøstre: south-eastern
