@@ -17,12 +17,24 @@ To improve:
 | `check_withheld.py` | `out/eval2` | FAIL | HØP failed its checks after 3 attempts and is still shown ("read before use") and exported |
 | `check_evidence.py` | `out/eval2` | FAIL | no bullet is tied to a source sentence |
 | `check_numbers.py` | `out/eval2` | PASS | every number is in the source, yet HØP gives the 450 million to the wrong loan: numbers alone are not enough |
-| `check_perturbations.py` | `--replay fixtures/hamar_news/perturbed --mock` | FAIL | 0 of 3 planted names removed, the name-in-title case not rejected |
+| `check_perturbations.py` | `--replay fixtures/hamar_news/perturbed --mock` | FAIL | replay does not clean saved inputs, so every planted name reaches every file |
 
-Why the names leak: `run_replay` never scrubs again and trusts the stored `names_in_title`;
-and run through `names.py` directly, the heuristics still catch 0 of the 3 planted names and
-not the names in the title. "Kontaktperson i Hamar kommune er rådgiver Testa Fiktivsen" is
-missed because "i Hamar kommune" sits between the cue and the name.
+Name removal measured directly (18.11), four synthetic, realistic-looking names:
+
+| Planted name | list + patterns (`eval-baseline`) | + NER (task 013, Edvard) |
+|---|---|---|
+| after a cue, first name in the list | removed | removed |
+| no cue, first name not in the list | **leaks** | removed |
+| lower case | **leaks** | **leaks** |
+| hyphenated first name | removed | removed |
+| names in a title | detected | detected |
+
+So 2/4 before NER and 3/4 after; the lower-case name leaks because task 013 keeps NER away from
+lowercase words to avoid false alarms on place names, a trade-off to report.
+
+Correction (18.11): the first version of this plan said "0 of 3" on 17.11. Those planted names
+were invented ("Testa Fiktivsen"), and the Norwegian NER model labels such names as organisations,
+so the number measured the test, not the system. The fixtures now use realistic synthetic names.
 
 ## Tasks, in order
 
@@ -31,7 +43,7 @@ missed because "i Hamar kommune" sits between the cue and the name.
 | 006 | Answer keys and one-command Level 2 score (already planned). Tag `eval-baseline` when done | 1 (measure first) | M |
 | 010 | Withhold a summary that still fails, instead of "read before use" | 1 | S |
 | 008 | Numbers checked against the source; deadline and case number in the header from code | 1 | S |
-| 011 | Name removal with NER, also in replay | 2 | M |
+| 011 | Replay cleans like a live fetch; measure list vs. NER (NER itself: task 013) | 2 | S |
 | 009 | A source quote for every bullet | 1 | L |
 | 012 | Stress test: 5 runs each on `eval-baseline` and `main` | both, exam §3.3 | M |
 

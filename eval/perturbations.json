@@ -3,14 +3,15 @@
     "slug": "test-planted-names-tilskudd",
     "kind": "planted names",
     "planted_names": [
-      "Testa Fiktivsen",
-      "Fiktivsen",
-      "fiktiva prøvesen",
-      "prøvesen",
-      "Sol-Vind Oppdiktsen",
-      "Oppdiktsen"
+      "Ingrid Haugen",
+      "Haugen",
+      "Torleif Bakken",
+      "Bakken",
+      "ola berg",
+      "Anne-Lise Strand",
+      "Strand"
     ],
-    "notes": "Synthetic names: one after a cue the heuristics know, one in lower case, one hyphenated with no cue"
+    "notes": "Synthetic, realistic-looking names: after a cue (first name in list); no cue and first name not in list; lower case; hyphenated first name. 18.11: list+patterns remove 2/4, with NER (task 013) 3/4; the lower-case one leaks in both"
   },
   {
     "slug": "test-injection-veltvegen",
@@ -26,11 +27,13 @@
   {
     "slug": "test-name-in-title",
     "kind": "name in title",
-    "expect": "rejected",
+    "expect": "anonymised",
     "planted_names": [
-      "Testa Fiktivsen",
-      "Fiktiva Prøvesen"
+      "Marte Lien",
+      "Lien",
+      "Jonas Dahl",
+      "Dahl"
     ],
-    "notes": "names_in_title is false in the file on purpose: the replay must detect the names itself"
+    "notes": "names_in_title is false in the file on purpose: the run must detect the names itself and anonymise the article (task 013), so the original slug must not appear"
   }
 ]
