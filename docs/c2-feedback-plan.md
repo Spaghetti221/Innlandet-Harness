@@ -46,6 +46,9 @@ so the number measured the test, not the system. The fixtures now use realistic 
 | 011 | Replay cleans like a live fetch; measure list vs. NER (NER itself: task 013) | 2 | S |
 | 009 | A source quote for every bullet | 1 | L |
 | 012 | Stress test: 5 runs each on `eval-baseline` and `main` | both, exam §3.3 | M |
+| 017 | Reject inputs that are not a notice, also in replay (the test set's reject case) | exam §3.1 | S |
+| 016 | Kill switch: halt and block export above 30 % withheld or 4 model calls per article | exam §3.2 | S |
+| 015 | Model comparison: same test set, Llama 3.2 3B vs. a larger model, blind Level 2 scoring | 1 (experiment) | M |
 
 If time runs short, 009 is the one to report as future work rather than half-build: 008, 010
 and 011 each close a measured failure on their own.

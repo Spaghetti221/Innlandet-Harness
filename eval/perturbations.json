@@ -35,5 +35,17 @@
       "Dahl"
     ],
     "notes": "names_in_title is false in the file on purpose: the run must detect the names itself and anonymise the article (task 013), so the original slug must not appear"
+  },
+  {
+    "slug": "test-reject-empty-body",
+    "kind": "no text",
+    "expect": "rejected",
+    "notes": "Title only, no lead or body: nothing to summarise; a real model may invent a summary (task 017)"
+  },
+  {
+    "slug": "test-reject-off-section",
+    "kind": "out of scope",
+    "expect": "rejected",
+    "notes": "A page from the library section, not /lokaldemokrati/ (task 017)"
   }
 ]
