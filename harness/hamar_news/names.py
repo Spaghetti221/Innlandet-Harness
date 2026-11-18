@@ -57,8 +57,12 @@ NAME_NEXT_TO_REMOVED = re.compile(
     rf"{_P}(?:,|[ \t]+og|[ \t]+and)[ \t]+(?P<name>{_FULL_NAME})"
     rf"|(?P<name2>\b{_FULL_NAME})(?:,|[ \t]+og|[ \t]+and)[ \t]+{_P}"
 )
-# Company and organisation suffixes: "Teknaconsult AS, e-post" is not a person.
-_ORG_WORDS = {"AS", "ASA", "SA", "IKS", "KF", "BA", "Kommune", "Kommunen", "Kommunene", "Fylkeskommune", "Fylkeskommunen"}
+# Company and organisation suffixes: "Teknaconsult AS, e-post" is not a person. Venue words
+# since 18.11: the English NER model labelled "<place> Hotell" as a person. Words that are also
+# common surnames (Hall, Park) are left out on purpose.
+_ORG_WORDS = {"AS", "ASA", "SA", "IKS", "KF", "BA", "Kommune", "Kommunen", "Kommunene", "Fylkeskommune", "Fylkeskommunen",
+              "Hotell", "Hotel", "Vandrerhjem", "Skole", "Skolen", "School", "Museum", "Museet",
+              "Senter", "Senteret", "Centre", "Center", "Arena", "Stadion"}
 
 
 @cache

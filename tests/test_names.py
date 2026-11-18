@@ -128,6 +128,18 @@ def test_ner_keeps_a_lone_known_first_name():
     assert find_person_names("Kari og Ola har vist stort samfunnsansvar.") == ["Kari", "Ola"]
 
 
+def test_ner_span_naming_a_venue_is_not_a_person():
+    # 18.11: the English model labelled "<place> Hotell" in a prize notice as a person, and the
+    # summary was withheld for a name that was not there. No spaCy needed: the filter alone.
+    for text, span in (("Prisen deles ut ved Eksempelstua Hotell og Vandrerhjem.", "Eksempelstua Hotell"),
+                       ("The prize is awarded at Eksempelstua Hotel.", "Eksempelstua Hotel"),
+                       ("Møtet holdes på Eksempelvik Skole.", "Eksempelvik Skole")):
+        start = text.index(span)
+        assert not names.accept_ner_span(text, start, start + len(span)), span
+    text = "Kontakt Kari Nordmann for spørsmål."
+    assert names.accept_ner_span(text, 8, 21)
+
+
 def test_placeholders_are_static_english_and_old_runs_are_converted(tmp_path):
     from harness.hamar_news.extract import english_placeholders, load_saved_article, scrub_contact_details
     assert scrub_contact_details("Skriv til post@example.no eller ring 12 34 56 78.") == \
