@@ -314,3 +314,103 @@ def test_withheld_header_with_bullets_is_still_fully_checked(tmp_path):
     failures = _failures(tmp_path)
     assert not any(f.startswith("withheld") for f in failures)
     assert any(f.startswith("no_invented_dates") for f in failures)
+
+
+# --- Task 008: numbers checked against the source, key facts in the header -----------------------
+
+import json
+
+from harness.hamar_news.check import case_numbers_from_source, numbers_problems, parse_summary_file, validate_summary
+from harness.hamar_news.extract import load_saved_article
+
+LIVE = Path(__file__).resolve().parent.parent / "fixtures" / "hamar_news" / "live-2026-11-05"
+
+
+def _live(slug: str):
+    return load_saved_article(json.loads((LIVE / f"{slug}.json").read_text(encoding="utf-8")))
+
+
+def test_invented_number_fails_and_is_named():
+    source = "Kommunestyret vedtok å ta opp 450 millioner kroner til startlån. Hamar skal ta imot 30 flyktninger."
+    summary = "- The council will borrow 451 million kroner for start loans.\n- Hamar will settle 30 refugees."
+    problems = numbers_problems(summary, source)
+    assert len(problems) == 1
+    assert problems[0].startswith("numbers_in_source:")
+    assert "451" in problems[0]
+    assert '"The council will borrow 451 million kroner for start loans."' in problems[0]
+    assert numbers_problems("- 450 million kroner.\n- 30 refugees.", source) == []
+
+
+def test_number_forms_dates_and_leading_zeros():
+    source = "Bunnfradraget settes til 1 200 kroner. Saksnummer 25/01234. Frist 18.11.2026."
+    for written in ("1 200", "1.200", "1,200", "1200", "1 200"):
+        assert numbers_problems(f"- The deduction is {written} kroner.", source) == [], written
+    assert numbers_problems("- Case 25/1234.", source) == []
+    # Numeric dates are left to no_invented_dates.
+    assert numbers_problems("- Comments by 19.11.2026.", source) == []
+    assert any("1300" in p for p in numbers_problems("- The deduction is 1 300 kroner.", source))
+
+
+def test_number_only_in_the_title_passes():
+    # The model sees title + lead + body; "2027–2030" appears in the HØP title.
+    article = _live("handlings-og-okonomiplan-2027-2030-hop-vedtatt")
+    assert "2027–2030" in article.title
+    summary = "- The council adopted the action and economic plan for 2027–2030."
+    assert not [p for p in validate_summary(summary, article, is_mock=True) if p.startswith("numbers_in_source")]
+    assert any("2031" in p for p in validate_summary(summary.replace("2030", "2031"), article, is_mock=True))
+
+
+class NumberFixedWhenNamed:
+    """Writes a wrong plan ID until the feedback names it."""
+
+    name = "llama3.2:3b"
+
+    def __init__(self):
+        self.feedback: list[str] = []
+
+    def summarise(self, text, language, previous=None, problems=None, hints=None):
+        self.feedback += problems or []
+        named = any("9998" in p for p in (problems or []))
+        return GOOD if named else GOOD.replace("0403-9999", "0403-9998")
+
+
+def test_retry_message_names_the_invented_number(tmp_path):
+    model = NumberFixedWhenNamed()
+    _run(tmp_path, model, mock=False)
+    assert any(p.startswith("numbers_in_source") and "9998" in p for p in model.feedback)
+    md = (tmp_path / "summaries" / SUMMARY).read_text(encoding="utf-8")
+    assert "**Attempts:** 2" in md
+    assert _failures(tmp_path) == []
+
+
+# Read by hand from the ten saved notices (05.11), not copied from the code's output.
+HEADER_FACTS = {
+    "handlings-og-okonomiplan-2027-2030-hop-vedtatt": ("not stated", "not stated"),
+    "har-du-en-bolig-a-leie-ut": ("not stated", "not stated"),
+    "horing-felles-kommunedelplan-for-vann-og-avlop-2025-2035": ("2026-11-17", "not stated"),
+    "ny-sentrumsplan-er-vedtatt": ("not stated", "not stated"),
+    "offentlig-ettersyn-mindre-endring-av-sentrumsplanen-1": ("not stated", "37/2026"),
+    "offentlig-ettersyn-si-din-mening-om-detaljregulering-tjuvholmen-pumpestasjon": ("2026-11-06", "not stated"),
+    "oppstart-av-planarbeid-si-din-mening-om-detaljregulering-pumpestasjon-og-va-anlegg-ved-veltvegen":
+        ("2026-11-18", "not stated"),
+    "oppstart-reguleringsplan-fv-187-ringgata-i-hamar": ("2026-11-18", "2026/20689"),
+    "tilskudd-til-inkludering-av-barn-og-unge-2027": ("2026-11-13", "not stated"),
+    "utbyggingsavtalene-for-hamar-science-park-og-jernbanebrygga-er-godkjent-av-kommunestyret":
+        ("not stated", "not stated"),
+}
+
+
+def test_header_facts_for_the_ten_saved_notices(tmp_path):
+    assert {p.stem for p in LIVE.glob("*.json")} == set(HEADER_FACTS)
+    store = Store(tmp_path, mock=True)
+    for slug, (deadline, case_no) in HEADER_FACTS.items():
+        path = store.write_summary(_live(slug), "- A summary.", "English", "mock", truncated=False)
+        fields, _ = parse_summary_file(path.read_text(encoding="utf-8"))
+        assert fields["Deadline (from source)"] == deadline, slug
+        assert fields["Case number (from source)"] == case_no, slug
+
+
+def test_case_numbers_from_source():
+    assert case_numbers_from_source('Innspill merkes med saksnummer “2026/20689”.') == ["2026/20689"]
+    assert case_numbers_from_source("Se protokoll (sak 37/2026). Saksnr. 25/01234, sak 37/2026.") == ["37/2026", "25/01234"]
+    assert case_numbers_from_source("Se plan-ID 2026005 og budsjett 2027/2028.") == []

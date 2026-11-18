@@ -14,6 +14,7 @@ Everything here is decided by code, without a model:
   no_contact_details       no e-mail addresses or phone numbers in the summary
   no_personal_names        no personal names in the title or the summary (heuristic, see names.py)
   no_invented_dates        every date in the summary also appears in the source text
+  numbers_in_source        every other number (amount, count, case number, year) is in the source (task 008)
   deadline_kept            a date after 'frist', 'innen' or 'senest' in the source is in the summary
   language                 the summary is in the requested language (English/Norwegian only)
   responsible_body         the summary does not say Hamar municipality acts when the source names another body
@@ -27,6 +28,7 @@ import argparse
 import json
 import re
 import sys
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -95,6 +97,58 @@ def source_deadlines(text: str) -> set[tuple[int | None, int, int]]:
     found: set[tuple[int | None, int, int]] = set()
     for m in DEADLINE_CUE.finditer(text):
         found |= find_dates(text[m.start(): m.end() + 50])
+    return found
+
+
+# --- Numbers and case numbers (task 008) -------------------------------------------------------
+# Same rule as eval/check_numbers.py, copied rather than imported so the two stay independent:
+# grouped forms ("1 200", "1.200", "1,200") are read as 1200, every digit run also counts, and
+# leading zeros are dropped. Numeric dates in the summary are skipped: no_invented_dates covers them.
+_NUM_DATE = re.compile(r"\b\d{1,2}\.\s?\d{1,2}\.\s?\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b")
+_NUM_GROUPED = re.compile(r"\b\d{1,3}(?:[ ., ]\d{3})+\b")
+_NUM_DIGITS = re.compile(r"\d+")
+
+
+def _norm_numbers(text: str) -> str:
+    text = unicodedata.normalize("NFC", text or "").replace(" ", " ").replace(" ", " ")
+    return re.sub(r"\s+", " ", text)
+
+
+def find_numbers(text: str, skip_dates: bool) -> set[str]:
+    text = _norm_numbers(text)
+    if skip_dates:
+        text = _NUM_DATE.sub(" ", text)
+    found = {re.sub(r"\D", "", m) for m in _NUM_GROUPED.findall(text)}
+    found |= set(_NUM_DIGITS.findall(text))
+    return {n.lstrip("0") or "0" for n in found}
+
+
+def numbers_problems(summary: str, source_text: str) -> list[str]:
+    """One problem per number in the summary that is not in the source. The message quotes the
+    bullet and names the number, so the retry can fix that line (as task 005 does for actors)."""
+    in_source = find_numbers(source_text, skip_dates=False)
+    problems: list[str] = []
+    seen: set[str] = set()
+    for line in summary.splitlines():
+        for n in sorted(find_numbers(line, skip_dates=True) - in_source - seen, key=int):
+            seen.add(n)
+            # The line is model output; never pass a personal name on to logs or the model.
+            sentence = scrub_person_names(line.lstrip("-*+ \t").strip())
+            problems.append(f"numbers_in_source: the sentence \"{sentence}\" has the number {n}, which is "
+                            "not in the source. Use the number exactly as the source writes it, or leave it out.")
+    return problems
+
+
+CASE_NUMBER = re.compile(r"\b(?:saksnummer|saksnr\.?|arkivsak(?:snummer)?|sak)\b[\s.:]*[\"“”«»']?\s*"
+                         r"(\d{1,4}/\d{1,6})\b", re.IGNORECASE)
+
+
+def case_numbers_from_source(text: str) -> list[str]:
+    """Case numbers the source gives after "saksnummer", "saksnr", "arkivsak" or "sak", in order."""
+    found: list[str] = []
+    for m in CASE_NUMBER.finditer(text):
+        if m.group(1) not in found:
+            found.append(m.group(1))
     return found
 
 
@@ -303,6 +357,8 @@ def validate_summary(summary: str, article, is_mock: bool, language: str | None 
     for y, m, d in sorted(summary_dates, key=str):
         if not date_in_source((y, m, d), source_dates):
             problems.append(f"no_invented_dates: {d:02d}.{m:02d}.{y or '????'} is not in the source")
+    # article.text is title + lead + body, the text the model is given.
+    problems += numbers_problems(summary, article.text)
     if not is_mock:
         deadlines = source_deadlines(article.text)
         if deadlines and not any(date_in_source(d, summary_dates) for d in deadlines):

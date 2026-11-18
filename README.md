@@ -205,13 +205,18 @@ if any article breaks a rule: one summary per article, complete header, the link
 article's own `hamar.kommune.no/lokaldemokrati` URL, Published/Expires match the source
 page, 3–6 flat bullet points with none repeated (real runs), no e-mail addresses, phone
 numbers or personal names, **no date in the summary that is missing from the source
-text**, and **the deadline kept** (a date after "frist", "innen" or "senest" in the source
+text**, **no number in the summary that is missing from the source** (amounts, counts,
+case numbers, years; the retry message quotes the bullet and names the number), **the deadline kept** (a date after "frist", "innen" or "senest" in the source
 must be in the summary), **the requested language** (English or Norwegian, by counts of
 common words) and **the responsible body** (the summary must not say Hamar kommune acts when
 the source names another body, e.g. the county, a consultancy or Bufdir). Failures report
 how many names were found, never the names. Runs from before 05.11 stored raw HTML in
 `out/html/`; the check still reads it so old runs can be rescored, but those files contain
 names and should be deleted when no longer needed.
+
+Two header lines are written by code from the source, never by the model:
+`Deadline (from source)` and `Case number (from source)`, or `not stated` when the source
+has none.
 
 ### Retry with feedback
 

@@ -12,6 +12,8 @@ from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
+from .check import case_numbers_from_source
+from .export import deadline_from_source
 from .extract import Article
 from .fetch import anonymous_slug, digest
 from .summarise import NO_CONTENT
@@ -104,6 +106,11 @@ class Store:
         lines.append(f"- **Published:** {article.published[:10] or 'unknown'}")
         if article.expires:
             lines.append(f"- **Expires / deadline:** {article.expires[:10]}")
+        # Task 008: key facts taken from the source by code, never by the model.
+        deadline = deadline_from_source(article.text, article.published[:10])
+        case_numbers = case_numbers_from_source(article.text)
+        lines.append(f"- **Deadline (from source):** {deadline or 'not stated'}")
+        lines.append(f"- **Case number (from source):** {', '.join(case_numbers) or 'not stated'}")
         lines += [
             f"- **Original article:** <{article.url}>",
             f"- **Saved source:** [{article.slug}.json]({self._rel(self.source_dir / f'{article.slug}.json')})",
