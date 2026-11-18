@@ -163,3 +163,16 @@ class MockSummariser:
     def translate_title(self, title: str, language: str, previous: str | None = None,
                         problems: list[str] | None = None) -> str:
         return f"{title} ({language}, mock)"
+
+class MockBadSummariser:
+    """A fake model that always breaks the checks: Norwegian text (whatever language was asked
+    for) with a date that is in no source. Used to test that failing summaries are withheld.
+    Its name is not "mock", so the full checks apply to it."""
+
+    name = "mock-bad"
+
+    def summarise(self, text: str, language: str, previous: str | None = None,
+                  problems: list[str] | None = None, hints: list[str] | None = None) -> str:
+        return ("- Kommunen ber om innspill innen 29.12.2031.\n"
+                "- Saken skal behandles i kommunestyret.\n"
+                "- Les mer på kommunens nettside.")

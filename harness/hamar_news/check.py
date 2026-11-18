@@ -9,6 +9,7 @@ Everything here is decided by code, without a model:
   source_link              the link is the article's own hamar.kommune.no/lokaldemokrati URL
                            (the listing page for anonymised articles, slug "anon-<hash>")
   dates_match_source       Published / Expires equal the dates in the saved source data
+  withheld                 the summary failed its checks after the last attempt and is not shown
   summary_shape            the summary is non-empty; real runs have 3-6 flat '- ' bullets, none repeated
   no_contact_details       no e-mail addresses or phone numbers in the summary
   no_personal_names        no personal names in the title or the summary (heuristic, see names.py)
@@ -85,6 +86,7 @@ def parse_summary_file(md: str) -> tuple[dict[str, str], str]:
     return fields, summary.strip()
 
 
+BULLET_LINE = re.compile(r"^\s*[-*+]\s", re.MULTILINE)
 DEADLINE_CUE = re.compile(r"\b(?:s\u00f8knads)?frist(?:en)?\b|\binnen\b|\bsenest\b", re.IGNORECASE)
 
 
@@ -375,7 +377,12 @@ def check_article(slug: str, rec: dict, summaries_dir: Path, source_dir: Path,
             check, detail = problem.split(": ", 1)
             if check != "no_personal_names":  # already reported for the title above
                 r.fail(check, detail)
-    if article is None:
+    withheld = fields.get("Check", "").startswith("withheld")
+    if withheld and not BULLET_LINE.search(summary):
+        # Withheld on purpose (task 010): no summary is shown, so there is nothing to validate,
+        # but the article still has no summary. A file with any bullet is always fully checked.
+        r.fail("withheld", f"no summary; {fields['Check']}")
+    elif article is None:
         if not summary:
             r.fail("summary_shape", "summary is empty")
     else:

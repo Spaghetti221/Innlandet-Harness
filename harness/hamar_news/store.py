@@ -16,6 +16,11 @@ from .extract import Article
 from .fetch import anonymous_slug, digest
 from .summarise import NO_CONTENT
 
+# Shown instead of a summary that still fails its checks after the last attempt (task 010):
+# a wrong summary can be worse than none. The model's text stays in attempts/ only.
+WITHHELD_LINE = ("_No summary: the automatic summary did not pass the checks after {attempts} attempts. "
+                 "Read the original article._")
+
 
 class Store:
     def __init__(self, out_dir: Path, mock: bool):
@@ -87,7 +92,9 @@ class Store:
         # The file name keeps the slug: the check, state.json and the export use it as the key.
         date = article.published[:10] or datetime.now().strftime("%Y-%m-%d")
         path = self.summaries_dir / f"{date}_{article.slug}.md"
-        if summary.strip() == NO_CONTENT:
+        if problems:
+            summary = WITHHELD_LINE.format(attempts=attempts)
+        elif summary.strip() == NO_CONTENT:
             summary = "_The model found no article content to summarise._"
 
         lines = [f"# {title_translated or article.title}", ""]
@@ -107,7 +114,7 @@ class Store:
         ]
         lines.append(f"- **Attempts:** {attempts}")
         if problems:
-            lines.append(f"- **Check:** still failing after {attempts} attempt(s); read before use")
+            lines.append(f"- **Check:** withheld after {attempts} attempt(s)")
         if truncated:
             lines.append("- **Note:** the article was too long and was truncated before summarising.")
         lines += ["", "## Summary", "", summary.strip(), ""]
@@ -143,7 +150,8 @@ class Store:
         ]
         for _slug, rec in rows:
             title = (rec.get("title_translated") or rec["title"]).replace("|", "\\|")
-            lines.append(f"| {rec['published']} | {title} | [summary]({rec['summary_file']}) "
+            label = "summary" if rec.get("passed_check", True) else "withheld"
+            lines.append(f"| {rec['published']} | {title} | [{label}]({rec['summary_file']}) "
                          f"| [hamar.kommune.no]({rec['url']}) | {rec['language']} |")
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return path

@@ -11,6 +11,7 @@ Hamar news summariser (`harness/hamar_news/`):
 - Smoke run without a model: `python -m harness.hamar_news --once --mock`
 - Output check (exit 0/1): `python eval/check_summaries.py --mock`
 - Eval run, offline: `python -m harness.hamar_news --replay fixtures/hamar_news/live-2026-11-05 --mock --out out/eval` then `python eval/check_summaries.py --mock --out out/eval`
+- Withholding (task 010): `python -m harness.hamar_news --replay fixtures/hamar_news/live-2026-11-05 --mock-bad --out out/bad` then `python eval/check_withheld.py --out out/bad --mock --mock-bad-run`
 - Tasks with acceptance checks: `tasks/`
 
 MET probe from task 001 (`harness/probe.py`, Python standard library only):

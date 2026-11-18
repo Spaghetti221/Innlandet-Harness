@@ -60,7 +60,9 @@ Before the first attempt, code adds short reminders after the article: the langu
 flat 3–6 bullet format, and the responsible body when the source names one other than Hamar
 kommune (the same rule as check 10). The pipeline runs checks 5–12 right after the model answers. A failing summary goes back to
 the model with the problems, quoting the failing sentence where there is one, for up to three
-attempts in total; a summary that still fails is marked "read before use".
+attempts in total. A summary that still fails is withheld: the summary file and the export
+keep the title, dates and link and say there is no summary, and the model's text is kept only
+in `attempts/` (task 010; a wrong summary can be worse than none).
 
 ### Level 2: facts, checked against an answer key
 

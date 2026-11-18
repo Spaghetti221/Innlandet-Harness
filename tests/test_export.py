@@ -4,7 +4,7 @@ import json
 
 from harness.hamar_news.export import deadline_from_source, export_runs, kind_of, main, parse_bullets
 
-from test_check import GOOD, FixedSummariser, _run
+from test_check import GOOD, FixedSummariser, _run, _shown
 
 
 def test_parse_bullets_keeps_sub_bullets_and_drops_empty_headings():
@@ -62,7 +62,22 @@ def test_export_without_run_fails(tmp_path):
 
 def test_export_leaves_out_summaries_with_names(tmp_path):
     # Run 3 (03.11): a contact name the scrubbing missed reached one summary.
-    _run(tmp_path, FixedSummariser(GOOD + "\n- Questions go to Kari Nordmann."), mock=False)
+    _shown(tmp_path, GOOD + "\n- Questions go to Kari Nordmann.")
     items = export_runs([tmp_path], mock=False)
     assert items == []
     assert "Kari" not in json.dumps(items)
+
+
+def test_export_withholds_failing_summaries(tmp_path):
+    bad, good = tmp_path / "bad", tmp_path / "good"
+    _run(bad, FixedSummariser(GOOD.replace("30. november", "15. desember")), mock=False)
+    _run(good, FixedSummariser(GOOD), mock=False)
+
+    [item] = export_runs([bad], mock=False)
+    s = item["summaries"]["en"]
+    assert s["withheld"] is True and s["bullets"] == [] and s["passedCheck"] is False
+    assert item["title"] and item["published"] and item["url"]
+
+    [item] = export_runs([good], mock=False)
+    assert item["summaries"]["en"]["withheld"] is False
+    assert len(item["summaries"]["en"]["bullets"]) == 3

@@ -2,7 +2,8 @@
 
 Reads state.json and the Markdown summaries of one or more runs (one per summary language)
 and writes one JSON file the app bundles. Only the summaries, the dates and the article
-link are exported; no source text or HTML. Articles whose title names people, and summaries
+link are exported; no source text or HTML. A summary that failed its checks is exported as
+withheld, with no bullets. Articles whose title names people, and summaries
 in which a personal name is found, are left out.
 """
 
@@ -111,10 +112,14 @@ def export_runs(run_dirs: list[Path], mock: bool) -> list[dict]:
                     "url": rec["url"],
                     "summaries": {},
                 }
+            # A summary that failed its checks after the last attempt is withheld (task 010):
+            # decided from state.json, so runs from before the change export no bullets either.
+            withheld = not rec.get("passed_check", True)
             item["summaries"][language_code(rec["language"])] = {
                 "title": translated or title,
                 "model": rec["model"],
-                "bullets": parse_bullets(summary),
+                "bullets": [] if withheld else parse_bullets(summary),
+                "withheld": withheld,
                 "passedCheck": rec.get("passed_check", True),
                 "truncated": "Note" in fields,
             }

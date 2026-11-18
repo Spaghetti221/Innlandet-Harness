@@ -182,3 +182,27 @@ def test_saved_inputs_hold_no_personal_data():
         data = json.loads(f.read_text(encoding="utf-8"))
         text = "\n".join([data["title"], data["lead"], data["body"]])
         assert not find_person_names(text) and not EMAIL.search(text) and not PHONE.search(text), f.name
+
+
+def test_mock_bad_replay_withholds_every_summary(tmp_path):
+    # Task 010: a summary that still fails after the last attempt is not shown.
+    from harness.hamar_news.pipeline import run_replay
+    from harness.hamar_news.summarise import MockBadSummariser
+
+    fixtures = FIXTURES / "live-2026-11-05"
+    store = Store(tmp_path, mock=True)
+    written = run_replay({"language": "English", "max_input_tokens": 6000, "max_attempts": 3},
+                         fixtures, MockBadSummariser(), store)
+    assert len(written) == 10
+    for slug, rec in store.state["articles"].items():
+        assert rec["passed_check"] is False and rec["attempts"] == 3
+        md = (store.summaries_dir / rec["summary_file"]).read_text(encoding="utf-8")
+        body = md.partition("## Summary")[2]
+        assert "_No summary: the automatic summary did not pass the checks after 3 attempts." in body
+        assert "- **Check:** withheld after 3 attempt(s)" in md
+        assert "read before use" not in md and "29.12.2031" not in md
+        assert not [l for l in body.splitlines() if l.lstrip().startswith(("- ", "* ", "+ "))]
+        # The model's text is kept only in attempts/.
+        attempts = sorted((store.attempts_dir / slug).glob("attempt-*.md"))
+        assert len(attempts) == 3 and "29.12.2031" in attempts[-1].read_text(encoding="utf-8")
+    assert "[withheld]" in (store.summaries_dir / "INDEX.md").read_text(encoding="utf-8")

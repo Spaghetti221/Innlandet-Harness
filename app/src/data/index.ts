@@ -14,6 +14,8 @@ export type LanguageSummary = {
   model: string;
   bullets: Bullet[];
   passedCheck: boolean;
+  // Failed its checks after the last attempt: no bullets, show a plain "no summary" text.
+  withheld?: boolean;
   truncated: boolean;
 };
 

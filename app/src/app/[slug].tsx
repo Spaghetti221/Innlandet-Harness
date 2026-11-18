@@ -46,14 +46,19 @@ export default function NoticeScreen() {
       {notice.deadline && <DeadlineCard notice={notice} />}
 
       {fallback && <Text style={styles.note}>{t.otherLanguageOnly}</Text>}
-      {summary && !summary.passedCheck && (
+      {summary?.withheld && (
+        <Text style={[styles.note, { color: colors.warning }]} selectable>
+          {t.withheld}
+        </Text>
+      )}
+      {summary && !summary.withheld && !summary.passedCheck && (
         <Text style={[styles.note, { color: colors.warning }]} selectable>
           {t.failedCheck}
         </Text>
       )}
       {summary?.truncated && <Text style={styles.note}>{t.truncated}</Text>}
 
-      {summary && (
+      {summary && !summary.withheld && (
         <View style={[styles.card, { gap: 14 }]}>
           {summary.bullets.map((b, i) => (
             <View key={i} style={{ gap: 6 }}>
