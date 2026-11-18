@@ -89,8 +89,8 @@ robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out
 - `OllamaSummariser.summarise` / `.translate_title`: kaller Ollama lokalt (temperatur 0,2). `MockSummariser`: faste svar uten modell.
 
 ### `check.py`: sjekk uten modell (Nivå 1 i SPEC)
-- `validate_summary`: alle sjekker for én oppsummering. Disse sendes tilbake til modellen ved feil: form (3–6 flate punkter), kontaktinfo, personnavn, språk, ansvarlig organ, egne plassholdere, uoversatte glossarord, oppdiktede datoer, frist bevart.
-- Hjelpere: `find_dates`, `date_in_source`, `source_deadlines`, `language_problem`, `source_actors`, `responsible_body_problem`, `placeholder_problem`, `untranslated_problems`.
+- `validate_summary`: alle sjekker for én oppsummering. Disse sendes tilbake til modellen ved feil: form (3–6 flate punkter), kontaktinfo, personnavn, språk, ansvarlig organ, egne plassholdere, uoversatte glossarord, oppdiktede datoer, tall som ikke står i kilden (`numbers_in_source`, sitat av punktet og tallet), frist bevart.
+- Hjelpere: `find_dates`, `date_in_source`, `source_deadlines`, `find_numbers`, `numbers_problems`, `case_numbers_from_source`, `language_problem`, `source_actors`, `responsible_body_problem`, `placeholder_problem`, `untranslated_problems`.
 - `clean_title`, `title_problems`: rydder bort anførselstegn og «Title:», og sjekker en oversatt tittel (én linje, oversatt, navn, datoer, plassholdere, glossar).
 - `check_article`, `check_run`, `main`: sjekker en hel kjøring (topptekst, lenke, datoer, én fil per artikkel) og skriver `check.json`. Exit 0/1.
 
@@ -103,7 +103,7 @@ robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out
 - `run_forever`: polling; en feilet runde stopper ikke løkka.
 
 ### `store.py`: filer på disk
-- `Store`: `is_done`, `mark_skipped`, `mark_done`, `save_source`, `save_text`, `save_attempt`, `write_summary`, `write_index`. Holder `state.json` (også `title_translated`), slik at ingen artikkel oppsummeres to ganger. Oversatt tittel blir overskrift, med `Original title:` under; filnavnet beholder slugen.
+- `Store`: `is_done`, `mark_skipped`, `mark_done`, `save_source`, `save_text`, `save_attempt`, `write_summary`, `write_index`. Holder `state.json` (også `title_translated`), slik at ingen artikkel oppsummeres to ganger. Oversatt tittel blir overskrift, med `Original title:` under; filnavnet beholder slugen. `Deadline (from source)` og `Case number (from source)` skrives av koden fra kilden (`deadline_from_source`, `case_numbers_from_source`), eller `not stated`.
 
 ### `export.py`: til appen
 - `export_runs`, `main`: lager `app/src/data/summaries.json` av én eller flere kjøringer; hopper over oppsummeringer med navn. Hvert språk får sin egen `title`; appen viser den via `titleFor()`.
