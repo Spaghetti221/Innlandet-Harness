@@ -61,7 +61,7 @@ days before the deadline (needs a phone, not the browser). More in [app/README.m
 | `tasks/` | One `.md` per task, each with an acceptance check (001–014) |
 | `docs/overview.md` | Overview of every module, function, folder and test (Norwegian) |
 | `harness/hamar_news/` | The harness: fetch → extract → summarise → store, plus the output check |
-| `harness/hamar_news/prompts/` | Context files: the system prompt, and an English glossary of planning terms |
+| `harness/hamar_news/prompts/` | Context files: the system prompt and the title prompt (no glossary: the model translates on its own) |
 | `harness/hamar_news/data/first_names.txt` | First names used to find and remove personal names |
 | `config.json` | Run settings: language, model, intervals, request delay |
 | `eval/` | Checks: `check_probe.py` (task 001), `check_summaries.py` (Level 1 for the summaries); test set and keys later (task 006). Do not edit without agreement |
@@ -83,7 +83,7 @@ Copy `.env.example` to `.env` and fill in the values. `.env` is never committed.
 Hamar kommune has no API or RSS feed for its "Lokaldemokrati" announcements
 (<https://www.hamar.kommune.no/lokaldemokrati/>). This program polls that page, strips
 every new article down to its text, removes personal data, and asks a local
-**Llama 3.2 3B** model (via [Ollama](https://ollama.com)) to summarise it in a language of
+**Qwen 3.5 9B** model (`qwen3.5:9b-q4_K_M`) (via [Ollama](https://ollama.com)) to summarise it in a language of
 your choice. Each article gets **exactly one** Markdown summary file with a link back to
 the original, and an `INDEX.md` lists them all.
 
@@ -112,7 +112,7 @@ pip install -r requirements.txt
 For real (non-mock) runs, on the machine that runs the model:
 
 ```bash
-ollama pull llama3.2:3b
+ollama pull qwen3.5:9b-q4_K_M      # about 6 GB; Llama 3.2 3B was the default before
 ollama serve                       # listens on http://localhost:11434
 ```
 
@@ -142,7 +142,8 @@ Scheduler or cron.
 |---|---|---|
 | `language` | `English` | Summary language. Set by `--language` / `--set-language` and used by all later runs |
 | `ollama_url` | `http://localhost:11434` | Ollama server (`OLLAMA_URL` overrides it) |
-| `model` | `llama3.2:3b` | Ollama model tag |
+| `model` | `qwen3.5:9b-q4_K_M` | Ollama model tag |
+| `think` | `false` | Sent to Ollama as `think`: lets a thinking model reason first (`true`) or not (`false`); `null` leaves it out |
 | `num_ctx` | `8192` | Context window requested from Ollama (see below) |
 | `max_input_tokens` | `6000` | Article text is cut (at a paragraph if possible) above this estimate |
 | `max_listing_pages` | `3` | How many listing pages to scan per run |
@@ -172,14 +173,14 @@ keep their own state, so they never stop a real run from summarising an article.
 
 ### Context window
 
-Llama 3.2 3B supports up to 128k tokens, but Ollama only gives a model a small context
+Qwen 3.5 9B (like Llama 3.2 3B before it) supports far more than 8k tokens, but Ollama only gives a model a small context
 (2048–4096 tokens, depending on the version) unless `num_ctx` is set. Anything over the
 limit is cut silently, and the system prompt or the start of the article can be lost.
 
 The longest article at the time of writing (2026-10-29) was about 510 words, roughly
 4 KB of text. That is about 1.2k tokens; the typical article is 150–300 words, about
 400–800 tokens. With the system prompt and the answer (≤500 tokens), a
-summary needs about 2–2.5k tokens (the English system prompt with its glossary is ~700 tokens). **`num_ctx = 4096` is the minimum that is safe; the
+summary needs about 2–2.5k tokens (the system prompt is ~500 tokens). **`num_ctx = 4096` is the minimum that is safe; the
 default of 8192 leaves room for long hearing notices.** Text over `max_input_tokens` is
 truncated, and the summary file says so.
 

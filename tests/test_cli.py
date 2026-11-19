@@ -136,6 +136,27 @@ def test_ollama_request(monkeypatch):
     roles = [m["role"] for m in body["messages"]]
     assert roles == ["system", "user", "assistant", "user"]  # retry: previous answer + problems
     assert "Hint." in body["messages"][1]["content"] and "x: y" in body["messages"][3]["content"]
+    assert "think" not in body  # not sent unless configured
+
+
+def test_ollama_think_flag_and_reasoning_is_stripped(monkeypatch):
+    sent = {}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": "<think>\nReasoning.\n</think>\n\n- A summary."}}
+
+    def post(url, json, timeout):
+        sent.update(body=json)
+        return Response()
+
+    monkeypatch.setattr(summarise.requests, "post", post)
+    model = OllamaSummariser("http://localhost:11434", "qwen3.5:9b-q4_K_M", num_ctx=8192, think=False)
+    assert model.summarise("Artikkeltekst.", "English") == "- A summary."
+    assert sent["body"]["think"] is False
 
 
 def test_truncate_cuts_long_text_at_a_boundary():

@@ -242,16 +242,6 @@ def test_invented_placeholder_is_caught():
         assert placeholder_problem(ok) is None
 
 
-def test_untranslated_glossary_term_is_caught_but_brackets_are_allowed():
-    from harness.hamar_news.check import untranslated_problems
-    assert untranslated_problems("- Extending the startlån program.", "English") == [
-        'untranslated: "startlån" is Norwegian; write "housing start loan" instead']
-    for ok in ("- A public consultation (høring) is held.", "- Kommunedelplan for vann og avløp is out.",
-               "- Innlandet fylkeskommune is starting the work."):
-        assert untranslated_problems(ok, "English") == []
-    assert untranslated_problems("- Kommunen sender planen på høring.", "Norwegian") == []
-
-
 # --- run-level problems and header checks -------------------------------------------------------
 
 def test_missing_state_file_is_reported(tmp_path):

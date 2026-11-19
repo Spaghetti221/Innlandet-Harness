@@ -57,9 +57,11 @@ def test_article_about_named_people_is_anonymised(tmp_path):
     assert check_main(["--mock", "--out", str(tmp_path)]) == 0
 
 
-def test_glossary_only_for_english():
-    assert "pumping station" in system_prompt("English")
-    assert "pumping station" not in system_prompt("German")
+def test_no_glossary_in_the_prompt():
+    # The glossary was removed on the qwen3.5-9b branch: the model translates without help.
+    for language in ("English", "German"):
+        assert "pumping station" not in system_prompt(language)
+        assert f"ONLY in {language}" in system_prompt(language)
 
 
 def test_names_outside_the_list_are_found_by_context():

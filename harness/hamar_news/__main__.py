@@ -66,7 +66,8 @@ def main(argv=None) -> int:
     elif args.mock:
         summariser = MockSummariser()
     else:
-        summariser = OllamaSummariser(config["ollama_url"], config["model"], config["num_ctx"])
+        summariser = OllamaSummariser(config["ollama_url"], config["model"], config["num_ctx"],
+                                      think=config.get("think"))
     mock = args.mock or args.mock_bad
     log.info("Mode: %s | profile: %s | language: %s",
              summariser.name if mock else f"ollama {config['model']}", args.profile, config["language"])

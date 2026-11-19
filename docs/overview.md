@@ -1,7 +1,7 @@
 # Oversikt over programmet (per 17.11.2026)
 
 Innlandet Harness henter nye kunngjøringer fra <https://www.hamar.kommune.no/lokaldemokrati/>,
-fjerner personopplysninger, oppsummerer dem med en lokal språkmodell (Llama 3.2 3B via Ollama),
+fjerner personopplysninger, oppsummerer dem med en lokal språkmodell (Qwen 3.5 9B via Ollama; Llama 3.2 3B før branchen `qwen3.5-9b`),
 sjekker resultatet med kode og prøver på nytt med tilbakemelding. Oppsummeringene kan eksporteres
 til mobilappen Hamar Reader. Mål og suksesskriterier står i [SPEC.md](../SPEC.md).
 
@@ -15,7 +15,7 @@ listeside ──fetch──▶ artikkel-URL-er ──fetch──▶ HTML
    ▼                                              ▼
 robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out/source/*.json, out/text/*.txt
                                                   │
-                         summarise (system-prompt + glossar + hint)  ◀───────────────┐
+                         summarise (system-prompt + hint)  ◀─────────────────────────┐
                                                   │                                   │
                                      check.validate_summary ── feil ──▶ ny runde med │
                                                   │              problemene (maks 3) ─┘
@@ -30,7 +30,7 @@ robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out
 | Mappe / fil | Innhold |
 |---|---|
 | `harness/hamar_news/` | Selve programmet (moduler beskrevet under) |
-| `harness/hamar_news/prompts/` | `summarise_system.md` (system-prompten, 9 regler), `translate_title_system.md` (tittelprompten) og `glossary_en.md` (faste engelske fagord) |
+| `harness/hamar_news/prompts/` | `summarise_system.md` (system-prompten, 9 regler) og `translate_title_system.md` (tittelprompten). Glossaret `glossary_en.md` er fjernet |
 | `harness/hamar_news/data/first_names.txt` | Fornavnsliste brukt av navneregel 1 og NER-filteret |
 | `harness/probe.py` | Task 001: henter værvarsel for Hamar fra MET (kun standardbiblioteket) |
 | `eval/` | `check_summaries.py` og `check_probe.py`. **Endres ikke uten avtale** |
@@ -81,17 +81,17 @@ robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out
 - `_ner_model`, `ner_available`, `require_ner`, `ner_lang`: laster modellene; ekte kjøringer stopper uten dem.
 
 ### `summarise.py`: modellen
-- `system_prompt`: prompten med språk, pluss glossaret for engelsk.
+- `system_prompt`: prompten med språk (uten glossar).
 - `build_hints`: påminnelser etter artikkelen (språk, flat liste, ansvarlig organ).
 - `build_messages`: samtalen til modellen; ved nytt forsøk følger forrige svar og problemene med.
 - `truncate`: kutter for lange artikler ved avsnitt eller setning.
 - `needs_title_translation`, `title_messages`: eget, kort kall for tittelen når språket ikke er norsk (task 014).
-- `OllamaSummariser.summarise` / `.translate_title`: kaller Ollama lokalt (temperatur 0,2). `MockSummariser`: faste svar uten modell.
+- `OllamaSummariser.summarise` / `.translate_title`: kaller Ollama lokalt (temperatur 0,2; `think` fra config, `<think>`-blokker fjernes). `MockSummariser`: faste svar uten modell.
 
 ### `check.py`: sjekk uten modell (Nivå 1 i SPEC)
-- `validate_summary`: alle sjekker for én oppsummering. Disse sendes tilbake til modellen ved feil: form (3–6 flate punkter), kontaktinfo, personnavn, språk, ansvarlig organ, egne plassholdere, uoversatte glossarord, oppdiktede datoer, tall som ikke står i kilden (`numbers_in_source`, sitat av punktet og tallet), frist bevart.
-- Hjelpere: `find_dates`, `date_in_source`, `source_deadlines`, `find_numbers`, `numbers_problems`, `case_numbers_from_source`, `language_problem`, `source_actors`, `responsible_body_problem`, `placeholder_problem`, `untranslated_problems`.
-- `clean_title`, `title_problems`: rydder bort anførselstegn og «Title:», og sjekker en oversatt tittel (én linje, oversatt, navn, datoer, plassholdere, glossar).
+- `validate_summary`: alle sjekker for én oppsummering. Disse sendes tilbake til modellen ved feil: form (3–6 flate punkter), kontaktinfo, personnavn, språk, ansvarlig organ, egne plassholdere, oppdiktede datoer, tall som ikke står i kilden (`numbers_in_source`, sitat av punktet og tallet), frist bevart.
+- Hjelpere: `find_dates`, `date_in_source`, `source_deadlines`, `find_numbers`, `numbers_problems`, `case_numbers_from_source`, `language_problem`, `source_actors`, `responsible_body_problem`, `placeholder_problem`.
+- `clean_title`, `title_problems`: rydder bort anførselstegn og «Title:», og sjekker en oversatt tittel (én linje, oversatt, navn, datoer, plassholdere).
 - `check_article`, `check_run`, `main`: sjekker en hel kjøring (topptekst, lenke, datoer, én fil per artikkel) og skriver `check.json`. Exit 0/1.
 
 ### `pipeline.py`: arbeidsflyten
@@ -121,7 +121,7 @@ robots.txt / Crawl-delay 5 s           Article (renset) ──store──▶ out
 |---|---|
 | `test_hamar_news.py` | URL-filter, listesider, uttrekk, state, replay-fixtures uten personopplysninger |
 | `test_check.py` | Alle sjekkene, retry med tilbakemelding, feil på kjøringsnivå (manglende state, foreldreløse filer, duplikater, topptekst, lenke, datoer) |
-| `test_names.py` | Alle navnelag, NER-filteret, anonymisering, glossar, hint |
+| `test_names.py` | Alle navnelag, NER-filteret, anonymisering, ingen glossar, hint |
 | `test_cli.py` | Kommandolinjen, config og `.env`, pollingløkka, Ollama-klienten, `truncate`, stopp når modellserveren er nede |
 | `test_probe.py` | MET-proben: cache, 200, 304, andre feil, `--offline` |
 | `test_title.py` | Tittel-oversettelse: prompt, opprydding, sjekk, nye forsøk, fallback til norsk, topptekst og eksport |

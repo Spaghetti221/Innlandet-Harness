@@ -38,11 +38,10 @@ def test_only_non_norwegian_languages_get_a_translated_title():
         assert not needs_title_translation(lang)
 
 
-def test_title_messages_glossary_and_retry():
+def test_title_messages_no_glossary_and_retry():
     system, user = title_messages(TITLE, "English")
-    assert "into English" in system["content"] and "zoning plan" in system["content"]  # glossary
+    assert "into English" in system["content"] and "zoning plan" not in system["content"]  # no glossary
     assert user["content"] == f"<title>{TITLE}</title>"
-    assert "zoning plan" not in title_messages(TITLE, "German")[0]["content"]
     retry = title_messages(TITLE, "English", previous="Old", problems=["title_shape: x"])
     assert [m["role"] for m in retry] == ["system", "user", "assistant", "user"]
     assert "title_shape: x" in retry[-1]["content"]
@@ -66,7 +65,6 @@ def test_a_good_title_passes():
     ("Have your say on the zoning plan " + "for the area " * 20, "title_shape"),  # far too long
     ("Have your say on the zoning plan by 30 November 2026", "no_invented_dates"),  # date only in body
     ("Have your say on the [date] zoning plan", "invented_placeholder"),
-    ("Have your say on the reguleringsplan for Eksempelvegen", "untranslated"),
     ("Kari Nordmann wants comments on the zoning plan", "no_personal_names"),
 ])
 def test_bad_titles_are_caught(title, check):

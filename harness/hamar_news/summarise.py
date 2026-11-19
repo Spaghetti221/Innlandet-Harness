@@ -6,15 +6,14 @@ from pathlib import Path
 import requests
 
 NO_CONTENT = "NO_CONTENT"
-# Conservative estimate for Norwegian with the Llama 3 tokenizer (real ratio is ~3.5-4).
+# Conservative estimate for Norwegian (~3.5-4 with the Llama 3 tokenizer; not yet measured for Qwen).
 CHARS_PER_TOKEN = 3
 
 # The system prompt is a context file, kept next to the code so it can be reviewed and versioned.
 PROMPT_PATH = Path(__file__).parent / "prompts" / "summarise_system.md"
 SYSTEM_PROMPT = PROMPT_PATH.read_text(encoding="utf-8")
-# Fixed translations of planning terms, added only for English summaries (the 3B model
-# translated "pumpestasjon" as "power station" in the first real run).
-GLOSSARY_EN = (PROMPT_PATH.parent / "glossary_en.md").read_text(encoding="utf-8")
+# The English glossary of planning terms (tasks 007/013) was removed on the qwen3.5-9b branch:
+# the larger model is expected to translate without help, and the checks no longer enforce it.
 
 
 TITLE_PROMPT = (PROMPT_PATH.parent / "translate_title_system.md").read_text(encoding="utf-8")
@@ -22,10 +21,7 @@ NORWEGIAN_PREFIXES = ("norw", "nors", "bokm", "nyno")
 
 
 def system_prompt(language: str) -> str:
-    prompt = SYSTEM_PROMPT.format(language=language, no_content=NO_CONTENT)
-    if language.strip().lower().startswith("english"):
-        prompt += "\n" + GLOSSARY_EN
-    return prompt
+    return SYSTEM_PROMPT.format(language=language, no_content=NO_CONTENT)
 
 
 def needs_title_translation(language: str) -> bool:
@@ -38,8 +34,6 @@ def title_messages(title: str, language: str, previous: str | None = None,
     """A separate, short conversation for the title (task 014): its own check and retries, so a
     bad title never forces the summary to be rewritten, and the other way round."""
     system = TITLE_PROMPT.format(language=language)
-    if language.strip().lower().startswith("english"):
-        system += "\n" + GLOSSARY_EN
     messages = [{"role": "system", "content": system},
                 {"role": "user", "content": f"<title>{title}</title>"}]
     if previous is not None and problems:
@@ -71,7 +65,8 @@ ACTOR_HINT = (
 
 def build_hints(language: str, actors: list[str] | None = None) -> list[str]:
     """Reminders placed after the article, closest to where the model starts writing. The 3B
-    model broke format, language and actor rules on the first attempt in the 17.11 run."""
+    model broke format, language and actor rules on the first attempt in the 17.11 run.
+    The language is stated as the task, not as translation help (no glossary)."""
     hints = [FORMAT_HINT.format(language=language)]
     if actors:
         hints.append(ACTOR_HINT.format(actor=actors[0]))
@@ -114,26 +109,31 @@ def truncate(text: str, max_tokens: int) -> tuple[str, bool]:
     return cut.rstrip(), True
 
 
+THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
 class OllamaSummariser:
-    def __init__(self, url: str, model: str, num_ctx: int, timeout: float = 600.0):
+    def __init__(self, url: str, model: str, num_ctx: int, timeout: float = 600.0,
+                 think: bool | None = None):
         self.url = url.rstrip("/")
         self.name = model
         self.num_ctx = num_ctx
         self.timeout = timeout
+        self.think = think
 
     def _chat(self, messages: list[dict]) -> str:
-        resp = requests.post(
-            f"{self.url}/api/chat",
-            json={
-                "model": self.name,
-                "messages": messages,
-                "stream": False,
-                "options": {"temperature": 0.2, "num_ctx": self.num_ctx},
-            },
-            timeout=self.timeout,
-        )
+        body = {
+            "model": self.name,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0.2, "num_ctx": self.num_ctx},
+        }
+        if self.think is not None:
+            body["think"] = self.think
+        resp = requests.post(f"{self.url}/api/chat", json=body, timeout=self.timeout)
         resp.raise_for_status()
-        return resp.json()["message"]["content"].strip()
+        # Older Ollama versions leave a thinking model's reasoning in the content.
+        return THINK_BLOCK.sub("", resp.json()["message"]["content"]).strip()
 
     def summarise(self, text: str, language: str, previous: str | None = None,
                   problems: list[str] | None = None, hints: list[str] | None = None) -> str:

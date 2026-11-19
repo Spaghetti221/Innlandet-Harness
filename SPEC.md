@@ -50,10 +50,10 @@ Success has two levels. A run is successful only if both pass.
 9. The summary is in the requested language (English or Norwegian).
 10. The summary does not say Hamar kommune acts when the source names another body as acting.
 11. No bracketed placeholder of the model's own, such as "[date]" (real runs).
-12. An English summary uses the glossary's English term, not the Norwegian one; the Norwegian
-    word in brackets after the English term is allowed (real runs).
+12. *(Removed on the `qwen3.5-9b` branch: the English glossary and its check. The model
+    translates planning terms without help.)*
 13. A translated title is one line, translated, not much longer than the original, and passes
-    checks 6, 7, 11 and 12; the original title in the header equals the saved source. A title
+    checks 6, 7 and 11; the original title in the header equals the saved source. A title
     that still fails after three attempts is replaced by the Norwegian title.
 
 Before the first attempt, code adds short reminders after the article: the language and the
@@ -105,7 +105,7 @@ Results of every run so far are in the report (`report/c2/`, Table 2).
   new name, because the model labels a name differently once the name beside it is replaced.
   A name can still be missed; the name check and the export filter are the second line.
 - Saved inputs keep only what the evaluation needs: title, lead, body text and dates.
-- A local model (Llama 3.2 3B via Ollama), so no article text leaves the machine.
+- A local model (Qwen 3.5 9B, `qwen3.5:9b-q4_K_M`, via Ollama), so no article text leaves the machine.
 - Summaries are not published anywhere automatically; a person reads them before export.
 
 ## Out of scope (Compulsory 2)

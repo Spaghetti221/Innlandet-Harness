@@ -11,7 +11,9 @@ ENV_PATH = REPO_ROOT / ".env"
 DEFAULTS = {
     "language": "English",
     "ollama_url": "http://localhost:11434",
-    "model": "llama3.2:3b",
+    "model": "qwen3.5:9b-q4_K_M",
+    # Thinking models (Qwen 3.x) reason before answering; off keeps runs fast. None = not sent.
+    "think": False,
     "num_ctx": 8192,
     "max_input_tokens": 6000,
     "max_listing_pages": 3,

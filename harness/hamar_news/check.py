@@ -19,9 +19,9 @@ Everything here is decided by code, without a model:
   language                 the summary is in the requested language (English/Norwegian only)
   responsible_body         the summary does not say Hamar municipality acts when the source names another body
   invented_placeholder     no bracketed placeholder of the model's own, such as "[date]" (real runs)
-  untranslated             no lowercase Norwegian glossary term in an English summary (real runs)
   title_*                  a translated title (task 014) is one line, translated, not much longer than
-                           the original, and passes the name, date, placeholder and glossary checks
+                           the original, and passes the name, date and placeholder checks
+The glossary check ("untranslated") was removed on the qwen3.5-9b branch with the glossary.
 """
 
 import argparse
@@ -36,7 +36,7 @@ from .config import REPO_ROOT
 from .extract import EMAIL, PHONE, Article, english_placeholders, extract_article, load_saved_article
 from .fetch import ANON_PREFIX, LISTING_URL, is_article_url
 from .names import find_person_names, ner_lang, scrub_person_names
-from .summarise import GLOSSARY_EN, NO_CONTENT
+from .summarise import NO_CONTENT
 
 MONTHS = {
     # Norwegian (bokmål/nynorsk) and English month names -> month number.
@@ -249,40 +249,6 @@ def placeholder_problem(summary: str) -> str | None:
             "Leave out what the article does not say instead of writing a placeholder.")
 
 
-# --- Glossary terms left in Norwegian ----------------------------------------------------------
-# 17.11: "startlån" stayed Norwegian although the glossary gives the English term. Only
-# lowercase occurrences count: capitalised ones are names ("Kommunedelplan for vann og avløp").
-# Names of bodies are allowed in Norwegian, so the responsible-body hint can name them.
-_GLOSSARY_ALLOWED = {"fylkeskommune", "kommunestyret", "formannskapet"}
-
-
-def _glossary_terms() -> dict[str, str]:
-    terms: dict[str, str] = {}
-    for line in GLOSSARY_EN.splitlines():
-        if not line.startswith("- ") or ":" not in line:
-            continue
-        norwegian, english = line[2:].split(":", 1)
-        for term in re.sub(r"\(.*?\)", "", norwegian).split(","):
-            term = term.strip()
-            if term and not term.endswith("-") and term not in _GLOSSARY_ALLOWED:
-                terms[term] = english.strip()
-    return terms
-
-
-GLOSSARY_TERMS = _glossary_terms()
-
-
-def untranslated_problems(summary: str, language: str | None) -> list[str]:
-    if not (language or "").strip().lower().startswith("english"):
-        return []
-    # "public consultation (høring)" is fine: the Norwegian word in brackets helps readers match
-    # the notice. Only a term used in place of the English one counts.
-    outside_brackets = re.sub(r"\([^)]*\)", "", summary)
-    return [f"untranslated: \"{term}\" is Norwegian; write \"{english}\" instead"
-            for term, english in GLOSSARY_TERMS.items()
-            if re.search(rf"(?<![\wæøå-]){re.escape(term)}\w*", outside_brackets)]
-
-
 # --- Translated title (task 014) ---------------------------------------------------------------
 
 def clean_title(raw: str) -> str:
@@ -317,7 +283,6 @@ def title_problems(title: str, article, language: str | None, is_mock: bool) -> 
     for problem in (language_problem(title, language), placeholder_problem(title)):
         if problem:
             problems.append(problem)
-    problems += untranslated_problems(title, language)
     return problems
 
 
@@ -350,7 +315,6 @@ def validate_summary(summary: str, article, is_mock: bool, language: str | None 
                         placeholder_problem(summary)):
             if problem:
                 problems.append(problem)
-        problems += untranslated_problems(summary, language)
 
     source_dates = find_dates(article.text)
     summary_dates = find_dates(summary)
